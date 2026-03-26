@@ -1,0 +1,989 @@
+openapi: 3.1.0
+info:
+  title: Authora
+  description: |
+    ## Authora - Auth Service
+    
+    A fully self-contained, reusable authentication service built on **Spring Boot 4 + Java 21**
+  version: 1.0.0
+  contact:
+    name: Bernhard M.
+    url: https://bermeb.dev
+    email: bernhard@bermeb.dev
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: http://auth.bermeb.dev
+    description: Production server
+
+tags:
+  - name: Authentication
+    description: |
+      Core auth flows: registration, login, token management, logout.
+  - name: Password
+    description: |
+      Password reset via email and authenticated password change.
+  - name: Email
+    description: Email address verification.
+  - name: Profile
+    description: Authenticated user's own profile. Requirers Bearer token.
+  - name: Admin
+    description: |
+      User management and audit log access.
+      **Requires 'ROLE_ADMIN'.**
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password, firstName, lastName]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        password:
+          type: string
+          format: password
+          minLength: 12
+          maxLength: 255
+        firstName:
+          type: string
+          maxLength: 100
+        lastName:
+          type: string
+          maxLength: 100
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    ResetPasswordRequest:
+      type: object
+      required: [token, newPassword]
+      properties:
+        token:
+          type: string
+        newPassword:
+          type: string
+          format: password
+          minLength: 12
+          maxLength: 255
+
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+          format: password
+        newPassword:
+          type: string
+          format: password
+          minLength: 12
+          maxLength: 255
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        emailVerified:
+          type: boolean
+        roles:
+          type: array
+          items:
+            type: string
+            enum: [USER, ADMIN]
+        profilePicture:
+          type: string
+          format: uri
+        createdAt:
+          type: string
+          format: date-time
+        lastLoginAt:
+          type: string
+          format: date-time
+
+    TokenResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        accessToken:
+          type: string
+          description: Short-lived JWT access token (default 15 min)
+        refreshToken:
+          type: string
+          description: Long-lived refresh token (default 30 days). Store securely, HttpOnly cookie recommended.
+        tokenType:
+          type: string
+          enum: [Bearer]
+        expiresIn:
+          type: integer
+          description: Seconds until the access token expires
+        user:
+          $ref: '#/components/schemas/UserProfile'
+
+    TokenRefreshResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        tokenType:
+          type: string
+          enum: [Bearer]
+        expiresIn:
+          type: integer
+
+    RegisterResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+
+        message:
+          type: string
+        userId:
+          type: string
+          format: uuid
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+
+    MeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        user:
+          $ref: '#/components/schemas/UserProfile'
+
+    AuditLogEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+          nullable: true
+        userEmail:
+          type: string
+          format: email
+          nullable: true
+        eventType:
+          type: string
+          enum:
+            - LOGIN_SUCCESS
+            - LOGIN_FAILURE
+            - LOGOUT
+            - TOKEN_REFRESHED
+            - OAUTH2_LOGIN
+            - REGISTRATION
+            - EMAIL_VERIFICATION
+            - PASSWORD_CHANGED
+            - PASSWORD_RESET_REQUESTED
+            - PASSWORD_RESET_COMPLETED
+            - ACCOUNT_LOCKED
+            - ACCOUNT_UNLOCKED
+            - ACCOUNT_DISABLED
+            - ROLE_ASSIGNED
+            - ROLE_REMOVED
+            - USER_DELETED
+            - RATE_LIMIT_EXCEEDED
+            - INVALID_TOKEN
+            - SUSPICIOUS_ACTIVITY
+        details:
+          type: string
+          nullable: true
+        ipAddress:
+          type: string
+        failed:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    PaginatedAuditLog:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLogEntry'
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+        number:
+          type: integer
+          description: Current page (0-based)
+        size:
+          type: integer
+
+    AdminUserView:
+      allOf:
+        - $ref: '#/components/schemas/UserProfile'
+        - type: object
+          properties:
+            enabled:
+              type: boolean
+            accountLocked:
+              type: boolean
+            lockedUntil:
+              type: string
+              format: date-time
+              nullable: true
+            failedLoginAttempts:
+              type: integer
+            oauthProvider:
+              type: string
+              nullable: true
+
+    PaginatedUserResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminUserView'
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+        number:
+          type: integer
+        size:
+          type: integer
+
+    # All errors follow RFC 9457 "Problem Details for HTTP APIs":
+    # https://www.rfc-editor.org/rfc/rfc9457
+
+    ProblemDetail:
+      description: RFC 9457 Problem Details object
+      type: object
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+
+  responses:
+    Unauthorized:
+      description: Missing, expired or invalid Bearer token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+
+    Forbidden:
+      description: Authenticated but insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+
+    BadRequest:
+      description: Validation error – check the `errors` field for per-field details
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+
+    TooManyRequests:
+      description: Rate limit exceeded – slow down and retry after 1 minute
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+              message:
+                type: string
+              status:
+                type: integer
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+
+# Endpoint groups:
+#   /api/v1/auth/register        — account creation
+#   /api/v1/auth/login           — credential authentication
+#   /api/v1/auth/refresh         — access token renewal
+#   /api/v1/auth/logout[/all]    — session termination
+#   /api/v1/auth/email/verify    — email address confirmation
+#   /api/v1/auth/password/*      — password reset and change flows
+#   /api/v1/auth/me              — current user profile
+#   /api/v1/admin/**             — admin-only user management (requires ROLE_ADMIN)
+
+paths:
+  /api/v1/auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register a new user account
+      description: |
+        Creates a new user with the `USER` role.
+
+        If `email-verification-required` is enabled (default), the account is inactive
+        until the user clicks the verification link in the welcome email.
+
+        Returns `409` if the email is already registered.
+      operationId: register
+      security: []   # public endpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        "201":
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                status: 401
+                detail: "Email already registered"
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/v1/auth/login:
+    post:
+      tags: [Authentication]
+      summary: Login with email and password
+      description: |
+        Authenticates a local (non-OAuth2) user and returns a JWT access token plus a refresh token.
+
+        **Account locking**: after `max-failed-attempts` consecutive failures, the account is
+        locked for `lock-duration-minutes` minutes. The lock is lifted automatically.
+
+        **Note**: Returns `401` for both unknown email and wrong password to prevent user enumeration.
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              valid:
+                summary: Valid credentials
+                value:
+                  email: "jane.doe@example.com"
+                  password: "S3cur3P@ssw0rd"
+      responses:
+        "200":
+          description: Login successful – store both tokens securely
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          description: Invalid credentials, account locked, or email not verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                invalidCredentials:
+                  summary: Wrong email or password
+                  value:
+                    status: 401
+                    detail: "Invalid credentials"
+                accountLocked:
+                  summary: Account temporarily locked
+                  value:
+                    status: 401
+                    detail: "Account is temporarily locked. Try again later"
+                emailNotVerified:
+                  summary: Email not verified
+                  value:
+                    status: 401
+                    detail: "Please verify your email address before logging in"
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: Refresh the access token
+      description: |
+        Exchanges a valid refresh token for a new access token.
+
+        When `rotate-on-use` is enabled (default), a new refresh token is also issued
+        and the old one is immediately revoked. **Always use the latest refresh token.**
+
+        Token reuse detection is active: if a previously rotated token is presented,
+        **all sessions** for that user are revoked immediately as a security measure.
+      operationId: refreshToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        "200":
+          description: New token pair issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefreshResponse'
+        "401":
+          description: Refresh token invalid, expired or revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Logout – revoke the current session
+      description: Revokes the provided refresh token. The access token remains valid until expiry (by design – keep expiry short).
+      operationId: logout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        "200":
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/auth/logout/all:
+    post:
+      tags: [Authentication]
+      summary: Logout from all devices
+      description: Revokes **all** active refresh tokens for the authenticated user. Useful for "sign out everywhere".
+      operationId: logoutAll
+      responses:
+        "200":
+          description: All sessions terminated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/auth/email/verify:
+    get:
+      tags: [Email]
+      summary: Verify email address
+      description: |
+        Called when the user clicks the verification link in the welcome email.
+        The `token` query parameter is a one-time, time-limited token (default 60 min).
+        On success, `emailVerified` is set to `true` and the user can log in.
+      operationId: verifyEmail
+      security: []
+      parameters:
+        - name: token
+          in: query
+          required: true
+          description: Raw verification token from the email link
+          schema:
+            type: string
+          example: "abc123verifytoken"
+      responses:
+        "200":
+          description: Email verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        "401":
+          description: Token invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /api/v1/auth/password/forgot:
+    post:
+      tags: [Password]
+      summary: Request a password-reset email
+      description: |
+        Sends a password-reset email if the address is registered.
+
+        **Always returns `200`** regardless of whether the email exists – this prevents
+        user enumeration attacks. The email is sent asynchronously.
+
+        Rate limited to prevent email spam attacks.
+      operationId: forgotPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        "200":
+          description: Request received (email sent if address is registered)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                success: true
+                message: "If that email is registered you will receive a reset link shortly"
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/v1/auth/password/reset:
+    post:
+      tags: [Password]
+      summary: Complete password reset using the token from email
+      description: |
+        Sets a new password using the token from the reset email.
+
+        After a successful reset:
+        - The token is marked as used (single-use)
+        - **All active refresh tokens are revoked** (all devices signed out)
+        - A confirmation email is sent to the user
+      operationId: resetPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        "200":
+          description: Password reset successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          description: Reset token invalid, expired or already used
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/v1/auth/password/change:
+    post:
+      tags: [Password]
+      summary: Change password (authenticated)
+      description: |
+        Changes the password for the currently authenticated user.
+        Requires the current password for verification.
+
+        After a successful change, **all active refresh tokens are revoked**.
+        The user must log in again on all devices.
+      operationId: changePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        "200":
+          description: Password changed – all sessions revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          description: Not authenticated or current password incorrect
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /api/v1/auth/me:
+    get:
+      tags: [Profile]
+      summary: Get current user's profile
+      description: Returns the public profile of the currently authenticated user.
+      operationId: getMe
+      responses:
+        "200":
+          description: Current user's profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/admin/users:
+    get:
+      tags: [Admin]
+      summary: List all users (paginated)
+      operationId: listUsers
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+          description: Page number (0-based)
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+          description: Page size
+      responses:
+        "200":
+          description: Paginated list of users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUserResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/admin/users/{id}:
+    get:
+      tags: [Admin]
+      summary: Get a single user by ID
+      operationId: getUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserView'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/admin/users/{id}/lock:
+    put:
+      tags: [Admin]
+      summary: Lock or unlock a user account
+      description: |
+        Locking a user immediately revokes all their active refresh tokens.
+        Unlocking resets the failed-login counter.
+      operationId: setLock
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: locked
+          in: query
+          required: true
+          schema:
+            type: boolean
+          description: "`true` to lock, `false` to unlock"
+      responses:
+        "200":
+          description: Lock state updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/admin/users/{id}/enable:
+    put:
+      tags: [Admin]
+      summary: Enable or disable a user account
+      description: Disabling a user immediately revokes all their refresh tokens.
+      operationId: setEnabled
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: enabled
+          in: query
+          required: true
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Account status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/admin/users/{id}/roles/{role}:
+    post:
+      tags: [Admin]
+      summary: Assign a role to a user
+      operationId: assignRole
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: role
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [USER, ADMIN]
+      responses:
+        "200":
+          description: Role assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Admin]
+      summary: Remove a role from a user
+      operationId: removeRole
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: role
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [USER, ADMIN]
+      responses:
+        "200":
+          description: Role removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/admin/users/{id}/revoke-sessions:
+    post:
+      tags: [Admin]
+      summary: Revoke all sessions for a user
+      description: Immediately invalidates all refresh tokens for the given user.
+      operationId: revokeSessions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: All sessions revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/admin/audit-logs:
+    get:
+      tags: [Admin]
+      summary: Get all audit log entries (newest first, paginated)
+      operationId: allAuditLogs
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        "200":
+          description: Paginated audit log
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAuditLog'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/admin/audit-logs/users/{userId}:
+    get:
+      tags: [Admin]
+      summary: Get audit log for a specific user
+      operationId: userAuditLogs
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: User's audit log entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAuditLog'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
