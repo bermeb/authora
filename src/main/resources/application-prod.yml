@@ -13,6 +13,13 @@ spring:
           starttls:
             enable: true
 
+authora:
+  jwt:
+    secret: ${JWT_SECRET}
+  features:
+    email-verification-required: true
+    audit-log-enabled: true
+
 logging:
   level:
     dev.bermeb.authora: WARN
