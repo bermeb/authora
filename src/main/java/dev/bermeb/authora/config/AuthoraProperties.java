@@ -61,6 +61,8 @@ public class AuthoraProperties {
         private boolean requireSpecialCharacters = true;
         @Min(5)
         private int resetTokenExpiryMinutes = 30;
+        @NotBlank
+        private String pepper;
     }
 
     @Data
@@ -78,6 +80,7 @@ public class AuthoraProperties {
         private boolean emailVerificationRequired = true;
         private boolean auditLogEnabled = true;
         private boolean twoFactorEnabled = false;
+        private String oauth2RedirectUri = "http://localhost:3000/oauth2/callback";
     }
 
     @Data

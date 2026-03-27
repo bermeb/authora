@@ -1,3 +1,13 @@
+server:
+  forward-headers-strategy: native
+  tomcat:
+    remoteip:
+      internal-proxies: >-
+        10\.\d{1,3}\.\d{1,3}\.\d{1,3}|
+        172\.1[6-9]\.\d{1,3}\.\d{1,3}|172\.2\d\.\d{1,3}\.\d{1,3}|172\.3[01]\.\d{1,3}\.\d{1,3}|
+        192\.168\.\d{1,3}\.\d{1,3}|
+        127\.\d{1,3}\.\d{1,3}\.\d{1,3}
+
 spring:
   application:
     name: authora
@@ -55,6 +65,7 @@ authora:
     require-numbers: ${PW_REQUIRE_DIGIT:true}
     require-special-characters: ${PW_REQUIRE_SPECIAL:true}
     reset-token-expiry-minutes: ${PW_RESET_EXPIRY_MINUTES:30}
+    pepper: ${PW_PEPPER:dev-pepper-do-not-use-in-production-min32chars}
   email:
     from-address: ${EMAIL_FROM:noreply@example.com}
     from-name: ${EMAIL_FROM_NAME:Auth Service}
@@ -64,6 +75,7 @@ authora:
     oauth2-enabled: ${FEATURE_OAUTH2:true}
     email-verification-required: ${FEATURE_EMAIL_VERIFY:true}
     audit-log-enabled: ${FEATURE_AUDIT_LOG:true}
+    oauth2-redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:3000/oauth2/callback}
   cors:
     allowed-origins:
       - ${CORS_ORIGIN:http://localhost:3000}

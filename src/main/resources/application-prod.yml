@@ -16,6 +16,8 @@ spring:
 authora:
   jwt:
     secret: ${JWT_SECRET}
+  password-policy:
+    pepper: ${PW_PEPPER}
   features:
     email-verification-required: true
     audit-log-enabled: true
