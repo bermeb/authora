@@ -52,8 +52,8 @@ authora:
     min-length: ${PW_MIN_LENGTH:10}
     require-uppercase: ${PW_REQUIRE_UPPER:true}
     require-lowercase: ${PW_REQUIRE_LOWER:true}
-    require-digit: ${PW_REQUIRE_DIGIT:true}
-    require-special-char: ${PW_REQUIRE_SPECIAL:true}
+    require-numbers: ${PW_REQUIRE_DIGIT:true}
+    require-special-characters: ${PW_REQUIRE_SPECIAL:true}
     reset-token-expiry-minutes: ${PW_RESET_EXPIRY_MINUTES:30}
   email:
     from-address: ${EMAIL_FROM:noreply@example.com}
@@ -68,7 +68,7 @@ authora:
     allowed-origins:
       - ${CORS_ORIGIN:http://localhost:3000}
     allowed-methods: GET,POST,PUT,DELETE,OPTIONS
-    allow-credentials: true
+    allowed-credentials: true
 
 management:
   endpoints:
