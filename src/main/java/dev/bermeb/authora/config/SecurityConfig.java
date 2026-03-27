@@ -1,6 +1,7 @@
 package dev.bermeb.authora.config;
 
 import dev.bermeb.authora.filter.JwtAuthenticationFilter;
+import dev.bermeb.authora.filter.RateLimitFilter;
 import dev.bermeb.authora.security.CustomOAuth2UserService;
 import dev.bermeb.authora.security.OAuth2AuthenticationFailureHandler;
 import dev.bermeb.authora.security.OAuth2AuthenticationSuccessHandler;
@@ -22,6 +23,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -35,6 +37,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final RateLimitFilter rateLimitFilter;
     private final UserDetailsService userDetailsService;
     private final AuthoraProperties properties;
     private final AuthenticationEntryPoint authEntryPoint;
@@ -88,6 +91,17 @@ public class SecurityConfig {
                     .failureHandler(oAuth2FailureHandler)
             );
         }
+
+        // Insert both filters before Spring's default username/password filter.
+        // Order within the "before" position matters:
+        //   1. RateLimitFilter runs first (cheapest check; no DB hit needed)
+        //   2. JwtAuthenticationFilter runs second (parses JWT and loads user from DB)
+        // Filter order: RateLimitFilter -> JwtAuthenticationFilter -> UsernamePasswordAuthenticationFilter
+        // Using addFilterAfter to anchor jwtAuthenticationFilter relative to rateLimitFilter explicitly,
+        // rather than both using the same UsernamePasswordAuthenticationFilter anchor (undefined order).
+        http
+                .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(jwtAuthenticationFilter, RateLimitFilter.class);
 
         return http.build();
     }
