@@ -1,10 +1,7 @@
 package dev.bermeb.authora.model;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -15,7 +12,7 @@ import java.util.UUID;
         @Index(name = "idx_al_event_type", columnList = "event_type"),
         @Index(name = "idx_al_created_at", columnList = "created_at")
 })
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor
+@Getter @Builder @NoArgsConstructor @AllArgsConstructor
 public class AuditLog {
 
     @Id
