@@ -19,7 +19,7 @@ public class CacheConfig {
 
         manager.registerCustomCache("rateLimitBuckets",
                 Caffeine.newBuilder().
-                        expireAfterWrite(1, TimeUnit.HOURS)
+                        expireAfterAccess(1, TimeUnit.HOURS)
                         .maximumSize(100_000)
                         .build()
         );
