@@ -1,0 +1,25 @@
+package dev.bermeb.authora.repository;
+
+import dev.bermeb.authora.model.AuditLog;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.time.Instant;
+import java.util.UUID;
+
+@Repository
+public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
+
+    Page<AuditLog> findByUserIdOrderByCreatedAtDesc(UUID userId, Pageable pageable);
+
+    Page<AuditLog> findByEventTypeOrderByCreatedAtDesc(AuditLog.AuditEventType eventType, Pageable pageable);
+
+    long countByUserIdAndEventTypeAndFailedTrueAndCreatedAtAfter(
+            UUID userId, AuditLog.AuditEventType eventType, Instant since
+    );
+
+    Page<AuditLog> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+}

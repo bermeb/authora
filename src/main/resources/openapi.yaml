@@ -14,7 +14,7 @@ info:
 servers:
   - url: http://localhost:8080
     description: Local development server
-  - url: http://auth.bermeb.dev
+  - url: https://auth.bermeb.dev
     description: Production server
 
 tags:
@@ -418,9 +418,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
-              example:
-                status: 401
-                detail: "Email already registered"
         "429":
           $ref: '#/components/responses/TooManyRequests'
 
@@ -443,12 +440,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/LoginRequest'
-            examples:
-              valid:
-                summary: Valid credentials
-                value:
-                  email: "jane.doe@example.com"
-                  password: "S3cur3P@ssw0rd"
       responses:
         "200":
           description: Login successful – store both tokens securely
@@ -464,22 +455,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
-              examples:
-                invalidCredentials:
-                  summary: Wrong email or password
-                  value:
-                    status: 401
-                    detail: "Invalid credentials"
-                accountLocked:
-                  summary: Account temporarily locked
-                  value:
-                    status: 401
-                    detail: "Account is temporarily locked. Try again later"
-                emailNotVerified:
-                  summary: Email not verified
-                  value:
-                    status: 401
-                    detail: "Please verify your email address before logging in"
         "429":
           $ref: '#/components/responses/TooManyRequests'
 
@@ -574,7 +549,6 @@ paths:
           description: Raw verification token from the email link
           schema:
             type: string
-          example: "abc123verifytoken"
       responses:
         "200":
           description: Email verified
@@ -615,9 +589,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
-              example:
-                success: true
-                message: "If that email is registered you will receive a reset link shortly"
         "400":
           $ref: '#/components/responses/BadRequest'
         "429":
