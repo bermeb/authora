@@ -17,11 +17,11 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
 
     Optional<PasswordResetToken> findByToken(String tokenHash);
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Transactional
     void deleteByUser(User user);
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("DELETE FROM PasswordResetToken t WHERE t.expiresAt < :cutoff OR t.used = true")
     void deleteExpiredAndUsed(Instant cutoff);
 

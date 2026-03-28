@@ -35,6 +35,16 @@ public class PasswordResetToken {
     @Builder.Default
     private boolean used = false;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "token_type", nullable = false, length = 30)
+    @Builder.Default
+    private TokenType tokenType = TokenType.PASSWORD_RESET;
+
+    public enum TokenType {
+        PASSWORD_RESET,
+        EMAIL_VERIFICATION
+    }
+
     public boolean isExpired() { return Instant.now().isAfter(this.expiresAt); }
 
     public boolean isValid() { return !used && !isExpired(); }
