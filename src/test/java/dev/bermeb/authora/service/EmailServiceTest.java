@@ -41,7 +41,7 @@ class EmailServiceTest {
     private User testUser;
 
     @BeforeEach
-    void setup() throws Exception {
+    void setup() {
         testUser = User.builder()
                 .id(UUID.randomUUID())
                 .email("u@example.com")
