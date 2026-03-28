@@ -64,15 +64,14 @@ public class AuditLogService {
         auditLogWriter.write(entry);
     }
 
-    private String extractIp(HttpServletRequest request) {
-        String xff = request.getHeader("X-Forwarded-For");
-        if (xff != null && !xff.isBlank()) {
-            return xff.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
-    }
-
     public void logSuspiciousActivity(User user, String details, HttpServletRequest request) {
         log(AuditLog.AuditEventType.SUSPICIOUS_ACTIVITY, user, details, request, true);
+    }
+
+    private String extractIp(HttpServletRequest request) {
+        if (request == null) return null;
+        // RemoteIpValve (server.forward-headers-strategy: NATIVE) already resolves X-Forwarded-For
+        // into getRemoteAddr(), so manual header parsing is unnecessary and would be inconsistent
+        return request.getRemoteAddr();
     }
 }

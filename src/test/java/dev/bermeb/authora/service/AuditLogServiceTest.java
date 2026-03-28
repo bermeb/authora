@@ -170,14 +170,12 @@ class AuditLogServiceTest {
     }
 
     @Test
-    @DisplayName("log() extracts first IP from X-Forwarded-For header")
-    void log_xForwardedFor() {
-        when(request.getHeader("X-Forwarded-For")).thenReturn("1.2.3.4, 5.6.7.8");
-
+    @DisplayName("log() uses getRemoteAddr() for IP (RemoteIpValve resolves X-Forwarded-For)")
+    void log_usesRemoteAddr() {
         auditLogService.log(AuditLog.AuditEventType.LOGIN_SUCCESS, testUser, null, request, false);
 
         ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
         verify(auditLogWriter).write(captor.capture());
-        assertThat(captor.getValue().getIpAddress()).isEqualTo("1.2.3.4");
+        assertThat(captor.getValue().getIpAddress()).isEqualTo("10.0.0.1");
     }
 }
