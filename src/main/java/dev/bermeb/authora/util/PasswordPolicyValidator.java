@@ -20,7 +20,8 @@ public class PasswordPolicyValidator {
 
        if(password == null || password.length() < policy.getMinLength()) {
            violations.add("at least " + policy.getMinLength() + " characters");
-           return;
+           // Early throw in case password is null to avoid NPE at password.chars()
+           throw new AuthException("Password must contain: " + String.join(", ", violations));
        }
 
        if (policy.isRequireUppercase() && password.chars().noneMatch(Character::isUpperCase)) {
