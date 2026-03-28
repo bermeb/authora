@@ -22,8 +22,8 @@ CREATE TABLE users
     updated_at            TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_users_email ON users (email);
-CREATE INDEX idx_users_oauth_provider ON users (oauth_provider, oauth_provider_id);
+CREATE UNIQUE INDEX idx_users_oauth_provider ON users (oauth_provider, oauth_provider_id)
+    WHERE oauth_provider IS NOT NULL;
 
 CREATE TABLE user_roles
 (
@@ -56,7 +56,8 @@ CREATE TABLE password_reset_tokens
     user_id    UUID        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    used       BOOLEAN     NOT NULL DEFAULT FALSE
+    used       BOOLEAN     NOT NULL DEFAULT FALSE,
+    token_type VARCHAR(30) NOT NULL DEFAULT 'PASSWORD_RESET'
 );
 CREATE INDEX idx_prt_token ON password_reset_tokens (token);
 CREATE INDEX idx_prt_user_id ON password_reset_tokens (user_id);
@@ -85,8 +86,7 @@ VALUES (gen_random_uuid(),
         'Admin',
         'User',
         TRUE,
-        TRUE
-       );
+        TRUE);
 
 INSERT INTO user_roles (user_id, role)
 SELECT id, 'ADMIN'
