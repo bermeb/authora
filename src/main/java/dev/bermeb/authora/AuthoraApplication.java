@@ -9,7 +9,6 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
-@EnableCaching
 @EnableAsync
 @EnableScheduling
 @EnableConfigurationProperties(AuthoraProperties.class)
