@@ -22,23 +22,23 @@ public class AuditLog {
     @Column(name = "user_id")
     private UUID userId;
 
-    @Column
+    @Column(name = "user_email")
     private String userEmail;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 60)
+    @Column(name = "event_type", nullable = false, length = 60)
     private AuditEventType eventType;
 
     @Column(columnDefinition = "TEXT")
     private String details;
 
-    @Column(length = 45)
+    @Column(name = "ip_address", length = 45)
     private String ipAddress;
 
-    @Column(length = 45)
+    @Column(name = "user_agent", length = 45)
     private String userAgent;
 
-    @Column(nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
     @Column(nullable = false)

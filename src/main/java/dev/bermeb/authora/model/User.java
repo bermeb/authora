@@ -27,40 +27,40 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column
+    @Column(name = "password_hash")
     private String passwordHash;
 
-    @Column(nullable = false, length = 100)
+    @Column(name = "first_name", nullable = false, length = 100)
     private String firstName;
 
-    @Column(nullable = false, length = 100)
+    @Column(name = "last_name", nullable = false, length = 100)
     private String lastName;
 
-    @Column(nullable = false)
+    @Column(name = "email_verified", nullable = false)
     private boolean emailVerified = false;
 
     @Column(nullable = false)
     @Builder.Default
     private boolean enabled = true;
 
-    @Column(nullable = false)
+    @Column(name = "account_locked", nullable = false)
     @Builder.Default
     private boolean accountLocked = false;
 
-    @Column
+    @Column(name = "locked_until")
     private Instant lockedUntil;
 
-    @Column(nullable = false)
+    @Column(name = "failed_login_attempts", nullable = false)
     @Builder.Default
     private int failedLoginAttempts = 0;
 
-    @Column(length = 50)
+    @Column(name = "oauth_provider", length = 50)
     private String oauthProvider;
 
-    @Column
+    @Column(name = "oauth_provider_id")
     private String oauthProviderId;
 
-    @Column
+    @Column(name = "profile_picture_url")
     private String profilePictureUrl;
 
     @ElementCollection(fetch = FetchType.EAGER)
@@ -71,14 +71,14 @@ public class User {
     private Set<Role> roles = new HashSet<>();
 
     @CreatedDate
-    @Column(nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
     @LastModifiedDate
-    @Column(nullable = false)
+    @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    @Column
+    @Column(name = "last_login_at")
     private Instant lastLoginAt;
 
     public String getFullName() {
