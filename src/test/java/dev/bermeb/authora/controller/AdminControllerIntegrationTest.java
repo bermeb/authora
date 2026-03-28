@@ -66,7 +66,7 @@ class AdminControllerIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
 
-        adminUserId = UUID.fromString(objectMapper.readTree(adminReg).get("userId").asText());
+        adminUserId = UUID.fromString(objectMapper.readTree(adminReg).get("userId").asString());
 
         // Promote to ADMIN via repository (same transaction, visible in subsequent MockMvc calls)
         userRepository.findById(adminUserId).ifPresent(user -> {
@@ -82,7 +82,7 @@ class AdminControllerIntegrationTest {
                         ))))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        adminToken = objectMapper.readTree(adminLogin).get("accessToken").asText();
+        adminToken = objectMapper.readTree(adminLogin).get("accessToken").asString();
 
         // Register a user
         String normalReg = mockMvc.perform(post(AUTH_BASE + "/register")
@@ -93,7 +93,7 @@ class AdminControllerIntegrationTest {
                         ))))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
-        normalUserId = UUID.fromString(objectMapper.readTree(normalReg).get("userId").asText());
+        normalUserId = UUID.fromString(objectMapper.readTree(normalReg).get("userId").asString());
 
         String normalLogin = mockMvc.perform(post(AUTH_BASE + "/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -102,7 +102,7 @@ class AdminControllerIntegrationTest {
                         ))))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        normalToken = objectMapper.readTree(normalLogin).get("accessToken").asText();
+        normalToken = objectMapper.readTree(normalLogin).get("accessToken").asString();
     }
 
     @AfterEach

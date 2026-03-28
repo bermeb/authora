@@ -176,7 +176,7 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        String token = objectMapper.readTree(response).get("accessToken").asText();
+        String token = objectMapper.readTree(response).get("accessToken").asString();
 
         mockMvc.perform(get(BASE + "/me")
                         .header("Authorization", "Bearer " + token))
@@ -204,7 +204,7 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        String refreshToken = objectMapper.readTree(loginResp).get("refreshToken").asText();
+        String refreshToken = objectMapper.readTree(loginResp).get("refreshToken").asString();
 
         mockMvc.perform(post(BASE + "/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -235,8 +235,8 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        String accessToken = objectMapper.readTree(loginResp).get("accessToken").asText();
-        String refreshToken = objectMapper.readTree(loginResp).get("refreshToken").asText();
+        String accessToken = objectMapper.readTree(loginResp).get("accessToken").asString();
+        String refreshToken = objectMapper.readTree(loginResp).get("refreshToken").asString();
 
         mockMvc.perform(post(BASE + "/logout")
                         .header("Authorization", "Bearer " + accessToken)
@@ -264,7 +264,7 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        String accessToken = objectMapper.readTree(loginResp).get("accessToken").asText();
+        String accessToken = objectMapper.readTree(loginResp).get("accessToken").asString();
 
         mockMvc.perform(post(BASE + "/logout/all")
                         .header("Authorization", "Bearer " + accessToken))
@@ -292,7 +292,7 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        String accessToken = objectMapper.readTree(loginResp).get("accessToken").asText();
+        String accessToken = objectMapper.readTree(loginResp).get("accessToken").asString();
 
         mockMvc.perform(post(BASE + "/password/change")
                         .header("Authorization", "Bearer " + accessToken)
