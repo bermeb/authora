@@ -15,13 +15,13 @@ public class PepperedPasswordEncoder implements PasswordEncoder {
     private final BCryptPasswordEncoder bcrypt;
     private final SecretKeySpec pepperKey;
 
-    public PepperedPasswordEncoder(int bycrptStrength, String pepper) {
+    public PepperedPasswordEncoder(int bcryptStrength, String pepper) {
         if (pepper == null || pepper.getBytes(StandardCharsets.UTF_8).length < 32) {
             throw new IllegalArgumentException(
                     "Pepper must be at least 32 bytes for HMAC-SHA256 security."
             );
         }
-        this.bcrypt = new BCryptPasswordEncoder(bycrptStrength);
+        this.bcrypt = new BCryptPasswordEncoder(bcryptStrength);
         this.pepperKey = new SecretKeySpec(
                 pepper.getBytes(StandardCharsets.UTF_8),
                 HMAC_ALGORITHM

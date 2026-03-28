@@ -23,7 +23,7 @@ public class OAuth2AuthenticationFailureHandler implements AuthenticationFailure
     private final AuthoraProperties properties;
 
     @Override
-    public void onAuthenticationFailure(HttpServletRequest request,
+    public void onAuthenticationFailure(@NonNull HttpServletRequest request,
                                         HttpServletResponse response,
                                         AuthenticationException exception) throws IOException {
         log.warn("OAuth2 authentication failed: {}", exception.getMessage());

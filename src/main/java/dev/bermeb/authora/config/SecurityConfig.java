@@ -50,7 +50,7 @@ public class SecurityConfig {
     private final Optional<ClientRegistrationRepository> clientRegistrationRepository;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) {
         http
                 // CSRF protection is unnecessary for stateless JWT APIs
                 .csrf(AbstractHttpConfigurer::disable)
@@ -124,7 +124,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) {
         return config.getAuthenticationManager();
     }
 

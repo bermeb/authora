@@ -7,7 +7,6 @@ import dev.bermeb.authora.model.User;
 import dev.bermeb.authora.repository.AuditLogRepository;
 import dev.bermeb.authora.repository.UserRepository;
 import dev.bermeb.authora.service.AdminService;
-import dev.bermeb.authora.service.RefreshTokenService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;

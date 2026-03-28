@@ -1,6 +1,5 @@
 package dev.bermeb.authora.config;
 
-import io.jsonwebtoken.security.Password;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
