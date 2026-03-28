@@ -22,7 +22,7 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
     long countByUserAndRevokedFalse(User user);
 
     @Modifying
-    @Query("UPDATE RefreshToken rt SET rt.revoked = true, rt.revokedAt = :now, rt.revokedReason = :reson " +
+    @Query("UPDATE RefreshToken rt SET rt.revoked = true, rt.revokedAt = :now, rt.revokedReason = :reason " +
             "WHERE rt.user = :user AND rt.revoked = false")
     void revokeAllForUser(User user, Instant now, String reason);
 

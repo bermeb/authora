@@ -114,7 +114,7 @@ public class RefreshTokenService {
             List<RefreshToken> oldest = refreshTokenRepository
                     .findByUserAndRevokedFalseOrderByCreatedAtAsc(user);
             if (!oldest.isEmpty()) {
-                oldest.getFirst().revoke("MAX_TOKEN_REACHED");
+                oldest.getFirst().revoke("MAX_TOKENS_REACHED");
                 refreshTokenRepository.save(oldest.getFirst());
             }
         }
