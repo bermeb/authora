@@ -27,8 +27,8 @@ public class AuditLogService {
                 .userId(user != null ? user.getId() : null)
                 .userEmail(user != null ? user.getEmail() : null)
                 .details(details)
-                .ipAddress(request.getRemoteAddr())
-                .userAgent(request.getHeader("User-Agent"))
+                .ipAddress(request != null ? extractIp(request) : null)
+                .userAgent(request != null ? request.getHeader("User-Agent") : null)
                 .createdAt(Instant.now())
                 .failed(failed)
                 .build();
@@ -55,13 +55,21 @@ public class AuditLogService {
                 .eventType(type)
                 .userEmail(email)
                 .details(details)
-                .ipAddress(request.getRemoteAddr())
-                .userAgent(request.getHeader("User-Agent"))
+                .ipAddress(request != null ? extractIp(request) : null)
+                .userAgent(request != null ? request.getHeader("User-Agent") : null)
                 .createdAt(Instant.now())
                 .failed(true)
                 .build();
 
         auditLogWriter.write(entry);
+    }
+
+    private String extractIp(HttpServletRequest request) {
+        String xff = request.getHeader("X-Forwarded-For");
+        if (xff != null && !xff.isBlank()) {
+            return xff.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 
     public void logSuspiciousActivity(User user, String details, HttpServletRequest request) {
