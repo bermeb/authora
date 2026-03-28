@@ -319,6 +319,7 @@ class AuthServiceTest {
             PasswordResetToken tokenEntity = PasswordResetToken.builder()
                     .token(dev.bermeb.authora.service.RefreshTokenService.hash(rawToken))
                     .user(testUser)
+                    .tokenType(PasswordResetToken.TokenType.EMAIL_VERIFICATION)
                     .expiresAt(Instant.now().plusSeconds(3600))
                     .createdAt(Instant.now())
                     .used(false)

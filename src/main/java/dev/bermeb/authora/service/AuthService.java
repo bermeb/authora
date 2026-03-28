@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -52,7 +53,7 @@ public class AuthService {
     @Transactional
     public User register(String email, String password, String firstName, String lastName, HttpServletRequest request) {
         if (userRepository.existsByEmail(email.toLowerCase())) {
-            throw new AuthException("Email already registered");
+            throw new AuthException("Email already registered", HttpStatus.CONFLICT);
         }
 
         // Validate password strength in case the frontend didn't
@@ -77,6 +78,7 @@ public class AuthService {
             PasswordResetToken verifyToken = PasswordResetToken.builder()
                     .token(RefreshTokenService.hash(rawToken))
                     .user(user)
+                    .tokenType(PasswordResetToken.TokenType.EMAIL_VERIFICATION)
                     .expiresAt(Instant.now().plus(60, ChronoUnit.MINUTES))
                     .createdAt(Instant.now())
                     .build();
@@ -166,7 +168,7 @@ public class AuthService {
     public void verifyEmail(String rawToken) {
         String hash = RefreshTokenService.hash(rawToken);
         PasswordResetToken token = passwordResetTokenRepository.findByToken(hash)
-                .filter(PasswordResetToken::isValid)
+                .filter(t -> t.isValid() && t.getTokenType() == PasswordResetToken.TokenType.EMAIL_VERIFICATION)
                 .orElseThrow(() -> new AuthException("Invalid or expired verification link"));
 
         User user = token.getUser();
@@ -190,6 +192,7 @@ public class AuthService {
             PasswordResetToken token = PasswordResetToken.builder()
                     .token(RefreshTokenService.hash(rawToken))
                     .user(user)
+                    .tokenType(PasswordResetToken.TokenType.PASSWORD_RESET)
                     .expiresAt(Instant.now().plus(
                             properties.getPasswordPolicy().getResetTokenExpiryMinutes(), ChronoUnit.MINUTES
                     ))
@@ -206,7 +209,7 @@ public class AuthService {
     public void resetPassword(String rawToken, String newPassword) {
         String hash = RefreshTokenService.hash(rawToken);
         PasswordResetToken token = passwordResetTokenRepository.findByToken(hash)
-                .filter(PasswordResetToken::isValid)
+                .filter(t -> t.isValid() && t.getTokenType() == PasswordResetToken.TokenType.PASSWORD_RESET)
                 .orElseThrow(() -> new AuthException("Invalid or expired reset token"));
 
         passwordPolicyValidator.validate(newPassword);
@@ -279,7 +282,7 @@ public class AuthService {
         }
 
         if (properties.getFeatures().isEmailVerificationRequired() && !user.isEmailVerified()) {
-            throw new AuthException("Please verify your email address before logging in");
+            throw new AuthException("Please verify your email address before logging in", HttpStatus.FORBIDDEN);
         }
     }
 
