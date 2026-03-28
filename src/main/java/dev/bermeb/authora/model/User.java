@@ -81,8 +81,11 @@ public class User {
     @Column
     private Instant lastLoginAt;
 
-    public String getFullName() { return this.firstName + " " + this.lastName; }
-
+    public String getFullName() {
+        String first = firstName != null ? firstName : "";
+        String last = lastName != null ? lastName : "";
+        return (first + " " + last).trim();
+    }
     public boolean isLocalUser() { return Objects.isNull(this.oauthProvider); }
 
     public void incrementFailedLoginAttempts() { this.failedLoginAttempts++; }

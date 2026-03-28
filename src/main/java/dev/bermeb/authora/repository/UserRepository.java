@@ -20,7 +20,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByOauthProviderAndOauthProviderId(String provider, String providerId);
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE User u SET u.lastLoginAt = :now WHERE u.id = :id")
     void updateLastLoginAt(@Param("id") UUID id, @Param("now") Instant now);
 
