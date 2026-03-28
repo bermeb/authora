@@ -1,0 +1,48 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;NON_KEYWORDS=USER
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false   # Use Hibernate create-drop in tests
+
+authora:
+  jwt:
+    secret: testSecretKeyForJwtThatIsLongEnoughForHS256Algorithm123
+    access-token-expiration-minutes: 15
+    issuer: authora-testing
+  refresh-token:
+    expiration-days: 7
+    max-per-user: 3
+    rotate-on-use: true
+  rate-limit:
+    enabled: false   # Disable rate limiting in unit tests
+    max-failed-attempts: 5
+    lock-duration-minutes: 15
+  password-policy:
+    min-length: 8
+    require-uppercase: false
+    require-lowercase: false
+    require-numbers: false
+    require-special-characters: false
+    reset-token-expiry-minutes: 30
+    pepper: test-pepper-value-for-unit-tests-32chars!
+  email:
+    from-address: test@example.com
+    from-name: Authora Testing
+    application-name: AuthoraTestApp
+    base-url: http://localhost:8080
+  features:
+    oauth2-enabled: false
+    email-verification-required: false
+    audit-log-enabled: true
+  cors:
+    allowed-origins:
+      - http://localhost:3000
