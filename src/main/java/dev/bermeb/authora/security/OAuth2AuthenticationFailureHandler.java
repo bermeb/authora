@@ -11,6 +11,7 @@ import org.springframework.security.web.authentication.AuthenticationFailureHand
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
@@ -22,12 +23,14 @@ public class OAuth2AuthenticationFailureHandler implements AuthenticationFailure
     private final AuthoraProperties properties;
 
     @Override
-    public void onAuthenticationFailure(@NonNull HttpServletRequest request,
+    public void onAuthenticationFailure(HttpServletRequest request,
                                         HttpServletResponse response,
                                         AuthenticationException exception) throws IOException {
         log.warn("OAuth2 authentication failed: {}", exception.getMessage());
 
-        String errorUrl = properties.getCors().getAllowedOrigins().getFirst()
+        URI redirectBase = URI.create(properties.getFeatures().getOauth2RedirectUri());
+        String origin = redirectBase.getScheme() + "://" + redirectBase.getAuthority();
+        String errorUrl = origin
                 + "/oauth2/error?message="
                 + URLEncoder.encode(exception.getMessage(), StandardCharsets.UTF_8);
         response.sendRedirect(errorUrl);
