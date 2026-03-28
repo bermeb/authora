@@ -36,6 +36,9 @@ class JwtServiceTest {
         jwt.setIssuer("test-issuer");
         when(properties.getJwt()).thenReturn(jwt);
 
+        // Initialize the cached signing key (normally done by @PostConstruct)
+        jwtService.init();
+
         User user = User.builder()
                 .id(UUID.randomUUID())
                 .email("u@example.com")
