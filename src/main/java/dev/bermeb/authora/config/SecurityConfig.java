@@ -28,7 +28,10 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+
 import java.util.List;
+import java.util.Optional;
 
 @Configuration
 @EnableWebSecurity
@@ -44,6 +47,7 @@ public class SecurityConfig {
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2AuthenticationSuccessHandler oAuth2SuccessHandler;
     private final OAuth2AuthenticationFailureHandler oAuth2FailureHandler;
+    private final Optional<ClientRegistrationRepository> clientRegistrationRepository;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -84,7 +88,7 @@ public class SecurityConfig {
                 )
                 .authenticationProvider(authenticationProvider());
 
-        if (properties.getFeatures().isOauth2Enabled()) {
+        if (properties.getFeatures().isOauth2Enabled() && clientRegistrationRepository.isPresent()) {
             http.oauth2Login(oauth2 -> oauth2
                     .userInfoEndpoint(ui -> ui.userService(customOAuth2UserService))
                     .successHandler(oAuth2SuccessHandler)
