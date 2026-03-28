@@ -35,8 +35,6 @@ class AuthControllerIntegrationTest {
 
     private static final String BASE = "/api/v1/auth";
 
-    // ── Registration ──────────────────────────────────────────────────────────
-
     @Test
     @DisplayName("POST /register → 201 Created")
     void register_success() throws Exception {
@@ -64,14 +62,14 @@ class AuthControllerIntegrationTest {
                         "firstName", "A", "lastName", "B"
                 )))).andExpect(status().isCreated());
 
-        // Register second time – same email
+        // Register second time - same email -> 409 Conflict
         mockMvc.perform(post(BASE + "/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "email", "dup@example.com", "password", "password12345",
                                 "firstName", "A", "lastName", "B"
                         ))))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isConflict());
     }
 
     @Test
@@ -88,8 +86,6 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors").exists());
     }
-
-    // ── Login ─────────────────────────────────────────────────────────────────
 
     @Test
     @DisplayName("POST /login → 200 + tokens")
@@ -134,8 +130,6 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
-    // ── Password Reset ────────────────────────────────────────────────────────
-
     @Test
     @DisplayName("POST /password/forgot → 200 even for unknown email (no enumeration)")
     void forgotPassword_unknownEmail_returns200() throws Exception {
@@ -147,8 +141,6 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }
-
-    // ── Protected endpoints ───────────────────────────────────────────────────
 
     @Test
     @DisplayName("GET /me without token → 401")
@@ -184,8 +176,6 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.user.email").value("metest@example.com"));
     }
 
-    // ── Token Refresh ─────────────────────────────────────────────────────────
-
     @Test
     @DisplayName("POST /refresh with valid refresh token → 200 + new accessToken")
     void refresh_success() throws Exception {
@@ -214,8 +204,6 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.refreshToken").exists())
                 .andExpect(jsonPath("$.success").value(true));
     }
-
-    // ── Logout ────────────────────────────────────────────────────────────────
 
     @Test
     @DisplayName("POST /logout with valid token → 200 success")
@@ -271,8 +259,6 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }
-
-    // ── Change Password ───────────────────────────────────────────────────────
 
     @Test
     @DisplayName("POST /password/change with valid credentials → 200 success")

@@ -6,13 +6,17 @@ import dev.bermeb.authora.model.Role;
 import dev.bermeb.authora.model.User;
 import dev.bermeb.authora.repository.AuditLogRepository;
 import dev.bermeb.authora.repository.UserRepository;
+import dev.bermeb.authora.service.AdminService;
 import dev.bermeb.authora.service.RefreshTokenService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.ZoneOffset;
@@ -23,16 +27,17 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
+@Validated
 public class AdminController {
 
     private final UserRepository userRepository;
     private final AuditLogRepository auditLogRepository;
-    private final RefreshTokenService refreshTokenService;
+    private final AdminService adminService;
 
     @GetMapping("/users")
     public ResponseEntity<PaginatedUserResponse> listUsers(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) int size) {
         // Cap size to 100 to prevent accidentally returning the entire user table
         Page<User> userPage = userRepository.findAll(PageRequest.of(
                 page, Math.min(size, 100), Sort.by("createdAt").descending()));
@@ -50,18 +55,13 @@ public class AdminController {
     @PutMapping("/users/{id}/lock")
     public ResponseEntity<SuccessResponse> setLock(
             @PathVariable UUID id,
-            @RequestParam boolean locked) {
-        return userRepository.findById(id).map(user -> {
-            user.setAccountLocked(locked);
-            if (!locked) user.resetFailedLoginAttempts();
-            userRepository.save(user);
-
-            if (locked) refreshTokenService.revokeAllForUser(user);
-
-            SuccessResponse response = new SuccessResponse();
-            response.setSuccess(true);
-            response.setMessage("User " + (locked ? "locked" : "unlocked"));
-            return ResponseEntity.ok(response);
+            @RequestParam boolean locked,
+            HttpServletRequest request) {
+        return adminService.setLock(id, locked, request).map(user -> {
+            SuccessResponse resp = new SuccessResponse();
+            resp.setSuccess(true);
+            resp.setMessage("User " + (locked ? "locked" : "unlocked"));
+            return ResponseEntity.ok(resp);
         }).orElse(ResponseEntity.notFound().build());
     }
 
@@ -69,80 +69,70 @@ public class AdminController {
     @PutMapping("/users/{id}/enable")
     public ResponseEntity<SuccessResponse> setEnabled(
             @PathVariable UUID id,
-            @RequestParam boolean enabled) {
-        return userRepository.findById(id).map(user -> {
-            user.setEnabled(enabled);
-            userRepository.save(user);
-
-            if (!enabled) refreshTokenService.revokeAllForUser(user);
-
-            SuccessResponse response = new SuccessResponse();
-            response.setSuccess(true);
-            response.setMessage("User " + (enabled ? "enabled" : "disabled"));
-            return ResponseEntity.ok(response);
+            @RequestParam boolean enabled,
+            HttpServletRequest request) {
+        return adminService.setEnabled(id, enabled, request).map(user -> {
+            SuccessResponse resp = new SuccessResponse();
+            resp.setSuccess(true);
+            resp.setMessage("User " + (enabled ? "enabled" : "disabled"));
+            return ResponseEntity.ok(resp);
         }).orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping("/users/{id}/roles/{role}")
     public ResponseEntity<SuccessResponse> assignRole(
             @PathVariable UUID id,
-            @PathVariable Role role) {
-        return userRepository.findById(id).map(user -> {
-            user.getRoles().add(role);
-            userRepository.save(user);
-
-            SuccessResponse response = new SuccessResponse();
-            response.setSuccess(true);
-            response.setMessage("Role assigned");
-            return ResponseEntity.ok(response);
+            @PathVariable Role role,
+            HttpServletRequest request) {
+        return adminService.assignRole(id, role, request).map(user -> {
+            SuccessResponse resp = new SuccessResponse();
+            resp.setSuccess(true);
+            resp.setMessage("Role assigned");
+            return ResponseEntity.ok(resp);
         }).orElse(ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/users/{id}/roles/{role}")
     public ResponseEntity<SuccessResponse> removeRole(
             @PathVariable UUID id,
-            @PathVariable Role role) {
-        return userRepository.findById(id).map(user -> {
-            user.getRoles().remove(role);
-            userRepository.save(user);
-
-            SuccessResponse response = new SuccessResponse();
-            response.setSuccess(true);
-            response.setMessage("Role removed");
-            return ResponseEntity.ok(response);
+            @PathVariable Role role,
+            HttpServletRequest request) {
+        return adminService.removeRole(id, role, request).map(user -> {
+            SuccessResponse resp = new SuccessResponse();
+            resp.setSuccess(true);
+            resp.setMessage("Role removed");
+            return ResponseEntity.ok(resp);
         }).orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping("/users/{id}/revoke-sessions")
-    public ResponseEntity<SuccessResponse> revokeSessions(@PathVariable UUID id) {
-        return userRepository.findById(id).map(user -> {
-            refreshTokenService.revokeAllForUser(user);
-
-            SuccessResponse response = new SuccessResponse();
-            response.setSuccess(true);
-            response.setMessage("All sessions revoked");
-            return ResponseEntity.ok(response);
+    public ResponseEntity<SuccessResponse> revokeSessions(
+            @PathVariable UUID id,
+            HttpServletRequest request) {
+        return adminService.revokeSessions(id, request).map(user -> {
+            SuccessResponse resp = new SuccessResponse();
+            resp.setSuccess(true);
+            resp.setMessage("All sessions revoked");
+            return ResponseEntity.ok(resp);
         }).orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/audit-logs")
     public ResponseEntity<PaginatedAuditLog> allAuditLogs(
-            @RequestParam(defaultValue = "0")  int page,
-            @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "50") @Min(1) int size) {
         Page<AuditLog> auditLogs = auditLogRepository.findAllByOrderByCreatedAtDesc(
                 PageRequest.of(page, Math.min(size, 200)));
-
         return ResponseEntity.ok(toPaginatedAuditLog(auditLogs));
     }
 
     @GetMapping("/audit-logs/users/{userId}")
     public ResponseEntity<PaginatedAuditLog> userAuditLogs(
             @PathVariable UUID userId,
-            @RequestParam(defaultValue = "0")  int page,
-            @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "50") @Min(1) int size) {
         Page<AuditLog> auditLogs = auditLogRepository.findByUserIdOrderByCreatedAtDesc(
                 userId, PageRequest.of(page, Math.min(size, 200)));
-
         return ResponseEntity.ok(toPaginatedAuditLog(auditLogs));
     }
 
