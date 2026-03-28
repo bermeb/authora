@@ -39,12 +39,18 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             throw new OAuth2AuthenticationException("Email not provided by OAuth2 provider");
         }
 
+        // Check if the OAuth2 provider actually verified this email address
+        Boolean providerEmailVerified = oAuth2User.getAttribute("email_verified");
+
         // Try to find an existing user
         User user = userRepository
                 .findByOauthProviderAndOauthProviderId(provider, providerId)
-                .orElseGet(() -> userRepository.findByEmail(email.toLowerCase())
-                        .orElse(null)
-                );
+                .orElseGet(() -> {
+                    if (Boolean.TRUE.equals(providerEmailVerified)) {
+                        return userRepository.findByEmail(email.toLowerCase()).orElse(null);
+                    }
+                    return null;
+                });
 
         // Register new user or refresh OAuth2 fields
         if (user == null) {
@@ -52,7 +58,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                     .email(email.toLowerCase())
                     .firstName(firstName != null ? firstName : "")
                     .lastName(lastName != null ? lastName : "")
-                    .emailVerified(true)
+                    .emailVerified(Boolean.TRUE.equals(providerEmailVerified))
                     .oauthProvider(provider)
                     .oauthProviderId(providerId)
                     .profilePictureUrl(picture)
@@ -63,7 +69,9 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             user.setOauthProvider(provider);
             user.setOauthProviderId(providerId);
             if (picture != null) user.setProfilePictureUrl(picture);
-            user.setEmailVerified(true);
+            if (Boolean.TRUE.equals(providerEmailVerified)) {
+                user.setEmailVerified(true);
+            }
         }
 
         user = userRepository.save(user);
