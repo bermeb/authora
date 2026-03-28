@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -85,7 +86,8 @@ class RefreshTokenServiceTest {
         @Test
         @DisplayName("saves hashed token and returns raw token")
         void create_savesAndReturnsRaw() {
-            when(refreshTokenRepository.countByUserAndRevokedFalse(any())).thenReturn(0L);
+            when(refreshTokenRepository.findByUserAndRevokedFalseOrderByCreatedAtAsc(any()))
+                    .thenReturn(new java.util.ArrayList<>());
             when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
             String raw = refreshTokenService.createRefreshToken(testUser, request);
@@ -107,9 +109,23 @@ class RefreshTokenServiceTest {
                     .expiresAt(Instant.now().plusSeconds(100))
                     .createdAt(Instant.now().minusSeconds(200))
                     .build();
+            RefreshToken mid = RefreshToken.builder()
+                    .token("midhash")
+                    .user(testUser)
+                    .expiresAt(Instant.now().plusSeconds(100))
+                    .createdAt(Instant.now().minusSeconds(100))
+                    .build();
+            RefreshToken newest = RefreshToken.builder()
+                    .token("newhash")
+                    .user(testUser)
+                    .expiresAt(Instant.now().plusSeconds(100))
+                    .createdAt(Instant.now())
+                    .build();
+            // Return a mutable list with 3 tokens (= max per user), so the oldest gets evicted
             when(refreshTokenRepository.findByUserAndRevokedFalseOrderByCreatedAtAsc(any()))
-                    .thenReturn(List.of(oldest));
+                    .thenReturn(new ArrayList<>(List.of(oldest, mid, newest)));
             when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
 
             refreshTokenService.createRefreshToken(testUser, request);
 
@@ -134,7 +150,8 @@ class RefreshTokenServiceTest {
                     .revoked(false)
                     .build();
             when(refreshTokenRepository.findByToken(anyString())).thenReturn(Optional.of(existing));
-            when(refreshTokenRepository.countByUserAndRevokedFalse(any())).thenReturn(0L);
+            when(refreshTokenRepository.findByUserAndRevokedFalseOrderByCreatedAtAsc(any()))
+                    .thenReturn(new ArrayList<>());
             when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
             String newToken = refreshTokenService.rotateRefreshToken(rawOld, request);

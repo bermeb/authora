@@ -21,12 +21,12 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
 
     long countByUserAndRevokedFalse(User user);
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE RefreshToken rt SET rt.revoked = true, rt.revokedAt = :now, rt.revokedReason = :reason " +
             "WHERE rt.user = :user AND rt.revoked = false")
     void revokeAllForUser(User user, Instant now, String reason);
 
-    @Modifying
-    @Query("DELETE FROM RefreshToken rt WHERE rt.expiresAt < :cutoff OR rt.revoked = true")
+    @Modifying(clearAutomatically = true)
+    @Query("DELETE FROM RefreshToken rt WHERE rt.expiresAt < :cutoff OR (rt.revoked = true AND rt.revokedAt < :cutoff)")
     void deleteExpiredAndRevoked(Instant cutoff);
 }

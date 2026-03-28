@@ -108,14 +108,14 @@ public class RefreshTokenService {
     }
 
     private void enforceMaxTokenLimit(User user) {
-        long activeCount = refreshTokenRepository.countByUserAndRevokedFalse(user);
-        if (activeCount >= properties.getRefreshToken().getMaxPerUser()) {
-            List<RefreshToken> oldest = refreshTokenRepository
-                    .findByUserAndRevokedFalseOrderByCreatedAtAsc(user);
-            if (!oldest.isEmpty()) {
-                oldest.getFirst().revoke("MAX_TOKENS_REACHED");
-                refreshTokenRepository.save(oldest.getFirst());
-            }
+        List<RefreshToken> activeTokens = refreshTokenRepository
+                .findByUserAndRevokedFalseOrderByCreatedAtAsc(user);
+        int max = properties.getRefreshToken().getMaxPerUser();
+
+        while (activeTokens.size() >= max) {
+            RefreshToken oldest = activeTokens.removeFirst();
+            oldest.revoke("MAX_TOKENS_REACHED");
+            refreshTokenRepository.save(oldest);
         }
     }
 
