@@ -83,7 +83,7 @@ public class User {
 
     public String getFullName() { return this.firstName + " " + this.lastName; }
 
-    public boolean isLocalUser() { return Objects.nonNull(this.oauthProvider); }
+    public boolean isLocalUser() { return Objects.isNull(this.oauthProvider); }
 
     public void incrementFailedLoginAttempts() { this.failedLoginAttempts++; }
 
