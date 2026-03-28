@@ -3,6 +3,7 @@ package dev.bermeb.authora.util;
 import dev.bermeb.authora.config.AuthoraProperties;
 import dev.bermeb.authora.exception.AuthException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -18,10 +19,14 @@ public class PasswordPolicyValidator {
        List<String> violations = new ArrayList<>();
        AuthoraProperties.PasswordPolicy policy = properties.getPasswordPolicy();
 
-       if(password == null || password.length() < policy.getMinLength()) {
+        // Early throw in case password is null to avoid NPE
+        if (password == null) {
+            throw new AuthException("Password must contain: " + String.join(", ", violations),
+                    HttpStatus.BAD_REQUEST);
+        }
+
+       if(password.length() < policy.getMinLength()) {
            violations.add("at least " + policy.getMinLength() + " characters");
-           // Early throw in case password is null to avoid NPE at password.chars()
-           throw new AuthException("Password must contain: " + String.join(", ", violations));
        }
 
        if (policy.isRequireUppercase() && password.chars().noneMatch(Character::isUpperCase)) {
@@ -43,7 +48,8 @@ public class PasswordPolicyValidator {
        }
 
        if(!violations.isEmpty()) {
-           throw new AuthException("Password must contain: " + String.join(", ", violations));
+           throw new AuthException("Password must contain: " + String.join(", ", violations),
+                   HttpStatus.BAD_REQUEST);
        }
     }
 }
