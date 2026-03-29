@@ -77,23 +77,3 @@ CREATE TABLE audit_logs
 CREATE INDEX idx_al_user_id ON audit_logs (user_id);
 CREATE INDEX idx_al_event_type ON audit_logs (event_type);
 CREATE INDEX idx_al_created_at ON audit_logs (created_at DESC);
-
-INSERT INTO users (id, email, password_hash, first_name, last_name, email_verified, enabled)
-VALUES (gen_random_uuid(),
-        'admin@example.com',
-        '$2a$12$LQv3c1yqBwEHXP5Zt.tXiOuZkRe.vGr1nLjJT14JlK/rGDq5Z0OJO', -- BCrypt hash of "Admin@12345"
-        'Admin',
-        'User',
-        TRUE,
-        FALSE
-);
-
-INSERT INTO user_roles (user_id, role)
-SELECT id, 'ADMIN'
-FROM users
-WHERE email = 'admin@example.com';
-
-INSERT INTO user_roles (user_id, role)
-SELECT id, 'USER'
-FROM users
-WHERE email = 'admin@example.com';

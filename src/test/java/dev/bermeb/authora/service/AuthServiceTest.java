@@ -8,6 +8,7 @@ import dev.bermeb.authora.model.User;
 import dev.bermeb.authora.repository.PasswordResetTokenRepository;
 import dev.bermeb.authora.repository.UserRepository;
 import dev.bermeb.authora.util.PasswordPolicyValidator;
+import dev.bermeb.authora.util.TokenHashUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -317,7 +318,7 @@ class AuthServiceTest {
         void verifyEmail_success() {
             String rawToken = "rawVerifyToken";
             PasswordResetToken tokenEntity = PasswordResetToken.builder()
-                    .token(dev.bermeb.authora.service.RefreshTokenService.hash(rawToken))
+                    .token(TokenHashUtil.hash(rawToken))
                     .user(testUser)
                     .tokenType(PasswordResetToken.TokenType.EMAIL_VERIFICATION)
                     .expiresAt(Instant.now().plusSeconds(3600))
@@ -351,7 +352,7 @@ class AuthServiceTest {
         void verifyEmail_usedToken() {
             String rawToken = "usedToken";
             PasswordResetToken usedTokenEntity = PasswordResetToken.builder()
-                    .token(dev.bermeb.authora.service.RefreshTokenService.hash(rawToken))
+                    .token(TokenHashUtil.hash(rawToken))
                     .user(testUser)
                     .expiresAt(Instant.now().plusSeconds(3600))
                     .createdAt(Instant.now())
@@ -374,7 +375,7 @@ class AuthServiceTest {
         void resetPassword_success() {
             String rawToken = "rawResetToken";
             PasswordResetToken tokenEntity = PasswordResetToken.builder()
-                    .token(dev.bermeb.authora.service.RefreshTokenService.hash(rawToken))
+                    .token(TokenHashUtil.hash(rawToken))
                     .user(testUser)
                     .expiresAt(Instant.now().plusSeconds(3600))
                     .createdAt(Instant.now())

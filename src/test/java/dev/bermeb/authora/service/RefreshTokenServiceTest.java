@@ -5,6 +5,7 @@ import dev.bermeb.authora.exception.AuthException;
 import dev.bermeb.authora.model.RefreshToken;
 import dev.bermeb.authora.model.User;
 import dev.bermeb.authora.repository.RefreshTokenRepository;
+import dev.bermeb.authora.util.TokenHashUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -68,15 +69,15 @@ class RefreshTokenServiceTest {
     @Test
     @DisplayName("hash() is deterministic for the same input")
     void hash_isDeterministic() {
-        String h1 = RefreshTokenService.hash("someToken");
-        String h2 = RefreshTokenService.hash("someToken");
+        String h1 = TokenHashUtil.hash("someToken");
+        String h2 = TokenHashUtil.hash("someToken");
         assertThat(h1).isEqualTo(h2).hasSize(64);
     }
 
     @Test
     @DisplayName("hash() produces different output for different inputs")
     void hash_differentForDifferentInputs() {
-        assertThat(RefreshTokenService.hash("a")).isNotEqualTo(RefreshTokenService.hash("b"));
+        assertThat(TokenHashUtil.hash("a")).isNotEqualTo(TokenHashUtil.hash("b"));
     }
 
     @Nested
@@ -95,7 +96,7 @@ class RefreshTokenServiceTest {
             assertThat(raw).isNotBlank();
             ArgumentCaptor<RefreshToken> captor = ArgumentCaptor.forClass(RefreshToken.class);
             verify(refreshTokenRepository).save(captor.capture());
-            assertThat(captor.getValue().getToken()).isEqualTo(RefreshTokenService.hash(raw));
+            assertThat(captor.getValue().getToken()).isEqualTo(TokenHashUtil.hash(raw));
             assertThat(captor.getValue().getUser()).isEqualTo(testUser);
         }
 
@@ -143,7 +144,7 @@ class RefreshTokenServiceTest {
         void rotate_success() {
             String rawOld = "oldRawToken";
             RefreshToken existing = RefreshToken.builder()
-                    .token(RefreshTokenService.hash(rawOld))
+                    .token(TokenHashUtil.hash(rawOld))
                     .user(testUser)
                     .expiresAt(Instant.now().plusSeconds(3600))
                     .createdAt(Instant.now())
@@ -166,7 +167,7 @@ class RefreshTokenServiceTest {
         void rotate_reuseDetected() {
             String reusedRaw = "reusedRaw";
             RefreshToken revoked = RefreshToken.builder()
-                    .token(RefreshTokenService.hash(reusedRaw))
+                    .token(TokenHashUtil.hash(reusedRaw))
                     .user(testUser)
                     .expiresAt(Instant.now().plusSeconds(100))
                     .createdAt(Instant.now())
@@ -186,7 +187,7 @@ class RefreshTokenServiceTest {
         void rotate_expiredNotRevoked() {
             String raw = "expiredRaw";
             RefreshToken expired = RefreshToken.builder()
-                    .token(RefreshTokenService.hash(raw))
+                    .token(TokenHashUtil.hash(raw))
                     .user(testUser)
                     .expiresAt(Instant.now().minusSeconds(10))
                     .createdAt(Instant.now().minusSeconds(100))
@@ -221,7 +222,7 @@ class RefreshTokenServiceTest {
         void getUser_active() {
             String raw = "activeToken";
             RefreshToken active = RefreshToken.builder()
-                    .token(RefreshTokenService.hash(raw))
+                    .token(TokenHashUtil.hash(raw))
                     .user(testUser)
                     .expiresAt(Instant.now().plusSeconds(3600))
                     .createdAt(Instant.now())
@@ -239,7 +240,7 @@ class RefreshTokenServiceTest {
         void getUser_expired() {
             String raw = "expiredToken";
             RefreshToken expired = RefreshToken.builder()
-                    .token(RefreshTokenService.hash(raw))
+                    .token(TokenHashUtil.hash(raw))
                     .user(testUser)
                     .expiresAt(Instant.now().minusSeconds(1))
                     .createdAt(Instant.now().minusSeconds(100))
@@ -257,7 +258,7 @@ class RefreshTokenServiceTest {
         void getUser_revoked() {
             String raw = "revokedToken";
             RefreshToken revoked = RefreshToken.builder()
-                    .token(RefreshTokenService.hash(raw))
+                    .token(TokenHashUtil.hash(raw))
                     .user(testUser)
                     .expiresAt(Instant.now().plusSeconds(3600))
                     .createdAt(Instant.now())
@@ -275,7 +276,7 @@ class RefreshTokenServiceTest {
     void revokeToken_success() {
         String raw = "tokenToRevoke";
         RefreshToken rt = RefreshToken.builder()
-                .token(RefreshTokenService.hash(raw))
+                .token(TokenHashUtil.hash(raw))
                 .user(testUser)
                 .expiresAt(Instant.now().plusSeconds(3600))
                 .createdAt(Instant.now())
