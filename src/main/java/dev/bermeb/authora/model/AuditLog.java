@@ -59,6 +59,7 @@ public class AuditLog {
         ACCOUNT_LOCKED,
         ACCOUNT_UNLOCKED,
         ACCOUNT_DISABLED,
+        ACCOUNT_ENABLED,
         ROLE_ASSIGNED,
         ROLE_REMOVED,
         USER_DELETED,
