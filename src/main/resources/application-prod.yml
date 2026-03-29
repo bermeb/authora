@@ -21,6 +21,9 @@ authora:
   features:
     email-verification-required: true
     audit-log-enabled: true
+  cors:
+    allowed-origins:
+      - https://authora.bermeb.dev
 
 logging:
   level:
