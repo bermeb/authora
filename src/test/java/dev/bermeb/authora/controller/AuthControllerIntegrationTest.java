@@ -1,5 +1,6 @@
 package dev.bermeb.authora.controller;
 
+import dev.bermeb.authora.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +16,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.util.Map;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -32,6 +34,8 @@ class AuthControllerIntegrationTest {
     MockMvc mockMvc;
     @Autowired
     ObjectMapper objectMapper;
+    @Autowired
+    UserRepository userRepository;
 
     private static final String BASE = "/api/v1/auth";
 
@@ -300,6 +304,112 @@ class AuthControllerIntegrationTest {
                                 "currentPassword", "password12345",
                                 "newPassword", "newPassword4567"
                         ))))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("POST /login → account locks after max-failed-attempts, correct password still returns 401")
+    void login_accountLockout_after5FailedAttempts() throws Exception {
+        mockMvc.perform(post(BASE + "/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "email", "lockout@example.com", "password", "password123",
+                                "firstName", "Lock", "lastName", "Out"
+                        ))))
+                .andExpect(status().isCreated());
+
+        // Exhaust the 5 allowed attempts with a wrong password
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post(BASE + "/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(Map.of(
+                                    "email", "lockout@example.com", "password", "WRONG"
+                            ))))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        // 6th attempt with the correct password - account is locked, must still be 401
+        mockMvc.perform(post(BASE + "/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "email", "lockout@example.com", "password", "password123"
+                        ))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.detail").value(containsString("locked")));
+    }
+
+    @Test
+    @DisplayName("POST /password/change for OAuth2 user → 401 not 500")
+    void changePassword_oAuth2User_returns401() throws Exception {
+        mockMvc.perform(post(BASE + "/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "email", "oauth2user@example.com", "password", "password123",
+                                "firstName", "OAuth2", "lastName", "User"
+                        ))))
+                .andExpect(status().isCreated());
+
+        String loginResp = mockMvc.perform(post(BASE + "/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "email", "oauth2user@example.com", "password", "password123"
+                        ))))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String accessToken = objectMapper.readTree(loginResp).get("accessToken").asText();
+
+        // Convert the user to an OAuth2 user in-transaction (clear passwordHash, set provider)
+        userRepository.findByEmail("oauth2user@example.com").ifPresent(user -> {
+            user.setPasswordHash(null);
+            user.setOauthProvider("google");
+            user.setOauthProviderId("fake-google-id-123");
+            userRepository.saveAndFlush(user);
+        });
+
+        // Must return 401 (not 500) - the OAuth2 guard in AuthService should fire
+        mockMvc.perform(post(BASE + "/password/change")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "currentPassword", "password123",
+                                "newPassword", "newPassword456"
+                        ))))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("POST /refresh with already-rotated token → 401 (rotated token cannot be reused)")
+    void refresh_rotatedToken_cannotBeReused() throws Exception {
+        mockMvc.perform(post(BASE + "/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "email", "reusedetect@example.com", "password", "password123",
+                                "firstName", "Reuse", "lastName", "Detect"
+                        ))))
+                .andExpect(status().isCreated());
+
+        String loginResp = mockMvc.perform(post(BASE + "/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "email", "reusedetect@example.com", "password", "password123"
+                        ))))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String originalRefreshToken = objectMapper.readTree(loginResp).get("refreshToken").asText();
+
+        // First refresh - legitimate use; rotates the token and issues a new one
+        mockMvc.perform(post(BASE + "/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("refreshToken", originalRefreshToken))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.refreshToken").exists());
+
+        // Second use of the ORIGINAL (now rotated/revoked) token - must be rejected
+        // getUserFromToken rejects it because isActive() returns false (revoked=true).
+        // The concurrent reuse-detection path (revokeAllForUser) is unit-tested in RefreshTokenServiceTest.
+        mockMvc.perform(post(BASE + "/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("refreshToken", originalRefreshToken))))
                 .andExpect(status().isUnauthorized());
     }
 }
