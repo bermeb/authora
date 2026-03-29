@@ -1,5 +1,5 @@
 --
--- V1__initial_schema.sql  —  Initial Database Schema
+-- V1__initial_schema.sql  -  Initial Database Schema
 --
 CREATE TABLE users
 (
