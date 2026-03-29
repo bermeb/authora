@@ -313,7 +313,7 @@ class AuthControllerIntegrationTest {
         mockMvc.perform(post(BASE + "/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "email", "lockout@example.com", "password", "password123",
+                                "email", "lockout@example.com", "password", "password12345",
                                 "firstName", "Lock", "lastName", "Out"
                         ))))
                 .andExpect(status().isCreated());
@@ -332,7 +332,7 @@ class AuthControllerIntegrationTest {
         mockMvc.perform(post(BASE + "/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "email", "lockout@example.com", "password", "password123"
+                                "email", "lockout@example.com", "password", "password12345"
                         ))))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.detail").value(containsString("locked")));
@@ -344,7 +344,7 @@ class AuthControllerIntegrationTest {
         mockMvc.perform(post(BASE + "/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "email", "oauth2user@example.com", "password", "password123",
+                                "email", "oauth2user@example.com", "password", "password12345",
                                 "firstName", "OAuth2", "lastName", "User"
                         ))))
                 .andExpect(status().isCreated());
@@ -352,11 +352,11 @@ class AuthControllerIntegrationTest {
         String loginResp = mockMvc.perform(post(BASE + "/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "email", "oauth2user@example.com", "password", "password123"
+                                "email", "oauth2user@example.com", "password", "password12345"
                         ))))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        String accessToken = objectMapper.readTree(loginResp).get("accessToken").asText();
+        String accessToken = objectMapper.readTree(loginResp).get("accessToken").asString();
 
         // Convert the user to an OAuth2 user in-transaction (clear passwordHash, set provider)
         userRepository.findByEmail("oauth2user@example.com").ifPresent(user -> {
@@ -371,7 +371,7 @@ class AuthControllerIntegrationTest {
                         .header("Authorization", "Bearer " + accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "currentPassword", "password123",
+                                "currentPassword", "password12345",
                                 "newPassword", "newPassword456"
                         ))))
                 .andExpect(status().isUnauthorized());
@@ -383,7 +383,7 @@ class AuthControllerIntegrationTest {
         mockMvc.perform(post(BASE + "/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "email", "reusedetect@example.com", "password", "password123",
+                                "email", "reusedetect@example.com", "password", "password12345",
                                 "firstName", "Reuse", "lastName", "Detect"
                         ))))
                 .andExpect(status().isCreated());
@@ -391,11 +391,11 @@ class AuthControllerIntegrationTest {
         String loginResp = mockMvc.perform(post(BASE + "/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
-                                "email", "reusedetect@example.com", "password", "password123"
+                                "email", "reusedetect@example.com", "password", "password12345"
                         ))))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        String originalRefreshToken = objectMapper.readTree(loginResp).get("refreshToken").asText();
+        String originalRefreshToken = objectMapper.readTree(loginResp).get("refreshToken").asString();
 
         // First refresh - legitimate use; rotates the token and issues a new one
         mockMvc.perform(post(BASE + "/refresh")
