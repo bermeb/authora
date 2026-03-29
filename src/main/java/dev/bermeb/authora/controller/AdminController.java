@@ -10,6 +10,7 @@ import dev.bermeb.authora.service.AdminService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -18,10 +19,12 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.URI;
 import java.time.ZoneOffset;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
@@ -29,8 +32,6 @@ import java.util.stream.Collectors;
 @Validated
 public class AdminController {
 
-    private final UserRepository userRepository;
-    private final AuditLogRepository auditLogRepository;
     private final AdminService adminService;
 
     @GetMapping("/users")
@@ -38,15 +39,14 @@ public class AdminController {
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) int size) {
         // Cap size to 100 to prevent accidentally returning the entire user table
-        Page<User> userPage = userRepository.findAll(PageRequest.of(
-                page, Math.min(size, 100), Sort.by("createdAt").descending()));
+        Page<User> userPage = adminService.listUsers(page, size);
 
         return ResponseEntity.ok(toPaginatedUserResponse(userPage));
     }
 
     @GetMapping("/users/{id}")
     public ResponseEntity<AdminUserView> getUser(@PathVariable UUID id) {
-        return userRepository.findById(id)
+        return adminService.findUser(id)
                 .map(user -> ResponseEntity.ok(toAdminUserView(user)))
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -120,8 +120,7 @@ public class AdminController {
     public ResponseEntity<PaginatedAuditLog> allAuditLogs(
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "50") @Min(1) int size) {
-        Page<AuditLog> auditLogs = auditLogRepository.findAllByOrderByCreatedAtDesc(
-                PageRequest.of(page, Math.min(size, 200)));
+        Page<AuditLog> auditLogs = adminService.listAuditLogs(page, size);
         return ResponseEntity.ok(toPaginatedAuditLog(auditLogs));
     }
 
@@ -130,8 +129,7 @@ public class AdminController {
             @PathVariable UUID userId,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "50") @Min(1) int size) {
-        Page<AuditLog> auditLogs = auditLogRepository.findByUserIdOrderByCreatedAtDesc(
-                userId, PageRequest.of(page, Math.min(size, 200)));
+        Page<AuditLog> auditLogs = adminService.listUserAuditLogs(userId, page, size);
         return ResponseEntity.ok(toPaginatedAuditLog(auditLogs));
     }
 
@@ -157,8 +155,15 @@ public class AdminController {
         view.setRoles(user.getRoles().stream()
                 .map(r -> AdminUserView.RolesEnum.fromValue(r.name()))
                 .collect(Collectors.toList()));
-        view.setProfilePicture(user.getProfilePictureUrl() != null
-                ? java.net.URI.create(user.getProfilePictureUrl()) : null);
+        URI profileUri = null;
+        if (user.getProfilePictureUrl() != null) {
+            try {
+                profileUri = URI.create(user.getProfilePictureUrl());
+            } catch (IllegalArgumentException e) {
+                log.warn("Malformed profile picture URL for user {}: {}", user.getId(), user.getProfilePictureUrl());
+            }
+        }
+        view.setProfilePicture(profileUri);
         view.setCreatedAt(user.getCreatedAt().atOffset(ZoneOffset.UTC));
         view.setLastLoginAt(user.getLastLoginAt() != null
                 ? user.getLastLoginAt().atOffset(ZoneOffset.UTC) : null);

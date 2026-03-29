@@ -3,9 +3,13 @@ package dev.bermeb.authora.service;
 import dev.bermeb.authora.model.AuditLog;
 import dev.bermeb.authora.model.Role;
 import dev.bermeb.authora.model.User;
+import dev.bermeb.authora.repository.AuditLogRepository;
 import dev.bermeb.authora.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +21,7 @@ import java.util.UUID;
 public class AdminService {
 
     private final UserRepository userRepository;
+    private final AuditLogRepository auditLogRepository;
     private final RefreshTokenService refreshTokenService;
     private final AuditLogService auditLogService;
 
@@ -43,7 +48,7 @@ public class AdminService {
                 auditLogService.logSuccess(AuditLog.AuditEventType.ACCOUNT_DISABLED, user, "Disabled by admin", request);
                 refreshTokenService.revokeAllForUser(user);
             } else {
-                auditLogService.logSuccess(AuditLog.AuditEventType.ACCOUNT_DISABLED, user, "Enabled by admin", request);
+                auditLogService.logSuccess(AuditLog.AuditEventType.ACCOUNT_ENABLED, user, "Enabled by admin", request);
             }
             return userRepository.save(user);
         });
@@ -67,6 +72,29 @@ public class AdminService {
                     "Role " + role.name() + " removed by admin", request);
             return userRepository.save(user);
         });
+    }
+
+    @Transactional(readOnly = true)
+    public Page<User> listUsers(int page, int size) {
+        return userRepository.findAll(
+                PageRequest.of(page, Math.min(size, 100), Sort.by("createdAt").descending()));
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<User> findUser(UUID id) {
+        return userRepository.findById(id);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AuditLog> listAuditLogs(int page, int size) {
+        return auditLogRepository.findAllByOrderByCreatedAtDesc(
+                PageRequest.of(page, Math.min(size, 200)));
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AuditLog> listUserAuditLogs(UUID userId, int page, int size) {
+        return auditLogRepository.findByUserIdOrderByCreatedAtDesc(
+                userId, PageRequest.of(page, Math.min(size, 200)));
     }
 
     @Transactional
