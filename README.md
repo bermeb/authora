@@ -88,4 +88,4 @@ See the [LICENSE](LICENSE) file for the full license text.
 
 ## ✉️ Contact
 
-Developed by **bermeb**. For inquiries or permission requests, please reach out via the repository's contact channels.
+Developed by **Bernhard Mebert**. For inquiries or permission requests, please reach out via the repository's contact channels.
