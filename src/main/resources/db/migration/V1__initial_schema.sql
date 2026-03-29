@@ -1,5 +1,5 @@
 --
--- V1__initial_schema.sql  —  Initial Database Schema
+-- V1__initial_schema.sql  -  Initial Database Schema
 --
 CREATE TABLE users
 (
@@ -22,8 +22,7 @@ CREATE TABLE users
     updated_at            TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX idx_users_oauth_provider ON users (oauth_provider, oauth_provider_id)
-    WHERE oauth_provider IS NOT NULL;
+CREATE UNIQUE INDEX idx_users_oauth_provider ON users (oauth_provider, oauth_provider_id) WHERE oauth_provider IS NOT NULL;
 
 CREATE TABLE user_roles
 (
@@ -86,7 +85,8 @@ VALUES (gen_random_uuid(),
         'Admin',
         'User',
         TRUE,
-        TRUE);
+        FALSE
+);
 
 INSERT INTO user_roles (user_id, role)
 SELECT id, 'ADMIN'

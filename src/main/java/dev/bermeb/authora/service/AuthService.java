@@ -130,7 +130,7 @@ public class AuthService {
         }
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = AuthException.class)
     public Map<String, Object> refresh(String rawRefreshToken, HttpServletRequest request) {
         User user = refreshTokenService.getUserFromToken(rawRefreshToken);
 
@@ -231,6 +231,11 @@ public class AuthService {
 
     @Transactional
     public void changePassword(User user, String currentPassword, String newPassword, HttpServletRequest request) {
+        // OAuth2 users have no password hash - reject immediately with a clear 401
+        if (!user.isLocalUser()) {
+            throw new AuthException("Password change is not available for accounts signed in with a social provider");
+        }
+
         // Verify current password to prevent stolen sessions from locking out the owner
         if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
             throw new AuthException("Current password is incorrect");

@@ -80,7 +80,12 @@ authora:
   cors:
     allowed-origins:
       - ${CORS_ORIGIN:http://localhost:3000}
-    allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+    allowed-methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - OPTIONS
     allowed-credentials: true
 
 management:
