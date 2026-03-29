@@ -32,7 +32,7 @@ public class OAuth2AuthenticationFailureHandler implements AuthenticationFailure
         String origin = redirectBase.getScheme() + "://" + redirectBase.getAuthority();
         String errorUrl = origin
                 + "/oauth2/error?message="
-                + URLEncoder.encode(exception.getMessage(), StandardCharsets.UTF_8);
+                + URLEncoder.encode("Authentication failed", StandardCharsets.UTF_8);
         response.sendRedirect(errorUrl);
     }
 }
