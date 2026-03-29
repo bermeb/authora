@@ -10,6 +10,7 @@ import dev.bermeb.authora.repository.PasswordResetTokenRepository;
 import dev.bermeb.authora.repository.UserRepository;
 import dev.bermeb.authora.security.UserPrincipal;
 import dev.bermeb.authora.util.PasswordPolicyValidator;
+import dev.bermeb.authora.util.TokenHashUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -76,7 +77,7 @@ public class AuthService {
             String rawToken = generateSecureToken();
             passwordResetTokenRepository.deleteByUser(user);
             PasswordResetToken verifyToken = PasswordResetToken.builder()
-                    .token(RefreshTokenService.hash(rawToken))
+                    .token(TokenHashUtil.hash(rawToken))
                     .user(user)
                     .tokenType(PasswordResetToken.TokenType.EMAIL_VERIFICATION)
                     .expiresAt(Instant.now().plus(60, ChronoUnit.MINUTES))
@@ -166,7 +167,7 @@ public class AuthService {
 
     @Transactional
     public void verifyEmail(String rawToken) {
-        String hash = RefreshTokenService.hash(rawToken);
+        String hash = TokenHashUtil.hash(rawToken);
         PasswordResetToken token = passwordResetTokenRepository.findByToken(hash)
                 .filter(t -> t.isValid() && t.getTokenType() == PasswordResetToken.TokenType.EMAIL_VERIFICATION)
                 .orElseThrow(() -> new AuthException("Invalid or expired verification link"));
@@ -190,7 +191,7 @@ public class AuthService {
             // Invalidate any existing reset tokens before creating a new one
             passwordResetTokenRepository.deleteByUser(user);
             PasswordResetToken token = PasswordResetToken.builder()
-                    .token(RefreshTokenService.hash(rawToken))
+                    .token(TokenHashUtil.hash(rawToken))
                     .user(user)
                     .tokenType(PasswordResetToken.TokenType.PASSWORD_RESET)
                     .expiresAt(Instant.now().plus(
@@ -207,7 +208,7 @@ public class AuthService {
 
     @Transactional
     public void resetPassword(String rawToken, String newPassword) {
-        String hash = RefreshTokenService.hash(rawToken);
+        String hash = TokenHashUtil.hash(rawToken);
         PasswordResetToken token = passwordResetTokenRepository.findByToken(hash)
                 .filter(t -> t.isValid() && t.getTokenType() == PasswordResetToken.TokenType.PASSWORD_RESET)
                 .orElseThrow(() -> new AuthException("Invalid or expired reset token"));
