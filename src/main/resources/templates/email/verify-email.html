@@ -4,19 +4,19 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
     <meta charset="UTF-8"/>
-    <!-- Responsive viewport — makes the email look good on mobile devices -->
+    <!-- Responsive viewport - makes the email look good on mobile devices -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Verify your email</title>
     <style>
         body { margin:0; padding:0; background:#f4f6f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-        /* .wrapper: centred card, max 600px wide — the safe email width for Outlook, Gmail, etc. */
+        /* .wrapper: centred card, max 600px wide - the safe email width for Outlook, Gmail, etc. */
         .wrapper { max-width:600px; margin:40px auto; background:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.08); }
         .header  { background:#4F46E5; padding:36px 40px; text-align:center; }
         .header h1 { margin:0; color:#ffffff; font-size:22px; font-weight:600; letter-spacing:.3px; }
         .body    { padding:36px 40px; color:#374151; line-height:1.7; }
         .body h2 { margin-top:0; color:#111827; font-size:18px; }
         .btn-wrap { text-align:center; margin:32px 0; }
-        /* .btn: the primary call-to-action button — inline-block so it respects text-align:center */
+        /* .btn: the primary call-to-action button - inline-block so it respects text-align:center */
         .btn     { display:inline-block; background:#4F46E5; color:#ffffff !important; text-decoration:none;
             padding:14px 36px; border-radius:6px; font-size:15px; font-weight:600; }
         .btn:hover { background:#4338CA; }
@@ -37,21 +37,21 @@
     </div>
 
     <div class="body">
-        <!-- Personalised greeting — ${firstName} is the user's first name -->
+        <!-- Personalised greeting - ${firstName} is the user's first name -->
         <h2>Hi <span th:text="${firstName}">there</span> 👋</h2>
         <p>Thanks for signing up! Please verify your email address to activate your account.</p>
 
         <!-- Primary CTA button.
              th:href sets the href attribute to the full verification URL, e.g.:
              http://localhost:8080/api/v1/auth/email/verify?token=abc123
-             The token is single-use — clicking the link a second time returns an error. -->
+             The token is single-use - clicking the link a second time returns an error. -->
         <div class="btn-wrap">
             <a class="btn" th:href="${verificationLink}">Verify Email Address</a>
         </div>
 
         <hr class="divider"/>
 
-        <!-- Expiry notice — ${expiryMinutes} is filled by EmailService (default: 30 min) -->
+        <!-- Expiry notice - ${expiryMinutes} is filled by EmailService (default: 30 min) -->
         <p>This link expires in <strong th:text="${expiryMinutes}">60</strong> minutes.</p>
 
         <!-- Safety paragraph: if someone received this email by mistake, they can safely ignore it.
@@ -67,7 +67,7 @@
     </div>
 
     <!-- Footer: copyright notice and "do not reply" notice.
-         Uses &copy; for the © symbol and &mdash; for the — dash (HTML entities). -->
+         Uses &copy; for the © symbol and &mdash; for the - dash (HTML entities). -->
     <div class="footer">
         &copy; <span th:text="${appName}">MyApp</span> &mdash; This is an automated message, please do not reply.
     </div>

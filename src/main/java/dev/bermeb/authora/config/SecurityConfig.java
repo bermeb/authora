@@ -133,8 +133,11 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(properties.getCors().getAllowedOrigins());
         config.setAllowedMethods(properties.getCors().getAllowedMethods());
-        // Allow all request headers
-        config.setAllowedHeaders(List.of("*"));
+        // Explicit header list required - CORS spec disallows wildcard (*) when allowCredentials=true
+        config.setAllowedHeaders(List.of(
+                "Authorization", "Content-Type", "Accept",
+                "X-Requested-With", "Origin", "Cache-Control"
+        ));
         config.setAllowCredentials(properties.getCors().isAllowedCredentials());
         // Cache the preflight OPTIONS response for this many seconds (reduces round-trips)
         config.setMaxAge(properties.getCors().getMaxAge());

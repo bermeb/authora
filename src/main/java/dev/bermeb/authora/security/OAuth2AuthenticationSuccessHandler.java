@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
+import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
@@ -20,7 +21,6 @@ import java.io.IOException;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Map;
-import java.util.Objects;
 
 @Slf4j
 @Component
@@ -54,7 +54,14 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         SECURE_RANDOM.nextBytes(bytes);
         String code = Base64.getEncoder().withoutPadding().encodeToString(bytes);
 
-        Objects.requireNonNull(cacheManager.getCache("oauth2PendingTokens")).put(accessToken, Map.of(
+        // Store the tokens in the short-lived oauth2PendingTokens cache under the one-time code
+        // The frontend must exchange this code within 2 minutes (cache TTL)
+        Cache pendingTokenCache = cacheManager.getCache("oauth2PendingTokens");
+        if (pendingTokenCache == null) {
+            throw new IllegalStateException("oauth2PendingTokens cache is not configured");
+        }
+
+        pendingTokenCache.put(accessToken, Map.of(
                 "accessToken", accessToken,
                 "refreshToken", refreshToken,
                 "expiresIn", jwtService.getAccessTokenExpirationSeconds()
