@@ -53,7 +53,7 @@ public class RefreshTokenService {
         return rawToken;
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = AuthException.class)
     public String rotateRefreshToken(String rawToken, HttpServletRequest request) {
         String hash = hash(rawToken);
         RefreshToken existing = refreshTokenRepository.findByToken(hash)
