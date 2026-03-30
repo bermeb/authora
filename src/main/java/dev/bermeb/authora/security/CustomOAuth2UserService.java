@@ -46,7 +46,10 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         User user = userRepository
                 .findByOauthProviderAndOauthProviderId(provider, providerId)
                 .orElseGet(() -> {
-                    if (Boolean.TRUE.equals(providerEmailVerified)) {
+                    // Only skip email-based lookup if the provider explicitly says the email
+                    // is NOT verified (false). A null value means the provider doesn't send
+                    // this field at all (e.g. GitHub) — treat as trusted and look up by email.
+                    if (!Boolean.FALSE.equals(providerEmailVerified)) {
                         return userRepository.findByEmail(email.toLowerCase()).orElse(null);
                     }
                     return null;
