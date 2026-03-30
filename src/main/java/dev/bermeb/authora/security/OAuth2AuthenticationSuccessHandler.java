@@ -54,14 +54,14 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         SECURE_RANDOM.nextBytes(bytes);
         String code = Base64.getEncoder().withoutPadding().encodeToString(bytes);
 
-        // Store the tokens in the short-lived oauth2PendingTokens cache under the one-time code
+        // Store the tokens under the one-time code
         // The frontend must exchange this code within 2 minutes (cache TTL)
         Cache pendingTokenCache = cacheManager.getCache("oauth2PendingTokens");
         if (pendingTokenCache == null) {
             throw new IllegalStateException("oauth2PendingTokens cache is not configured");
         }
 
-        pendingTokenCache.put(accessToken, Map.of(
+        pendingTokenCache.put(code, Map.of(
                 "accessToken", accessToken,
                 "refreshToken", refreshToken,
                 "expiresIn", jwtService.getAccessTokenExpirationSeconds()
