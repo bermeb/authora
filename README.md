@@ -16,7 +16,7 @@
     - Automated email notifications using Thymeleaf templates.
 - **Audit Logging**: Comprehensive tracking of security-sensitive events (logins, failed attempts, password changes).
 - **Admin Tools**: Dedicated endpoints for user management and system monitoring.
-- **API Documentation**: Fully documented REST API using OpenAPI 3.0 (Swagger).
+- **API Documentation**: Fully documented REST API using OpenAPI 3.1.
 
 ## 🛠️ Tech Stack
 
@@ -27,7 +27,22 @@
 - **Migrations**: Flyway
 - **Caching**: Caffeine Cache
 - **Utilities**: Lombok, Gson, Bucket4j
-- **Documentation**: OpenAPI / Swagger UI
+- **Documentation**: OpenAPI 3.1
+
+## 📂 Project Structure
+
+```text
+src/main/java/dev/bermeb/authora/
+├── config/             # Spring & Application configuration
+├── controller/         # REST API endpoints
+├── exception/          # Error handling & Problem Details
+├── filter/             # Security & Rate limiting filters
+├── model/              # JPA Entities & Enums
+├── repository/         # Database access layers
+├── security/           # OAuth2 & JWT security logic
+├── service/            # Business logic & integrations
+└── util/               # Cryptography & validation helpers
+```
 
 ## 📋 Prerequisites
 
@@ -46,7 +61,27 @@ The application is highly configurable via `src/main/resources/application.yml` 
 | `PW_PEPPER` | Server-side password pepper | *Change in Prod!* |
 | `RATE_LIMIT_ENABLED` | Enable brute-force protection | `true` |
 | `FEATURE_EMAIL_VERIFY`| Require email verification | `true` |
-| `DB_URL` | PostgreSQL connection URL | `jdbc:h2:mem...` |
+| `DB_URL` | Database connection URL | `jdbc:h2:mem...` |
+| `DB_USER` | Database username | `sa` |
+| `DB_PASSWORD` | Database password | *(empty)* |
+| `SMTP_HOST` | Email server host | `localhost` |
+| `SMTP_PORT` | Email server port | `1025` |
+
+### 🔑 OAuth2 Setup
+
+To enable social login, add your provider credentials to `application.yml` or set them as environment variables:
+
+```yaml
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope: profile,email
+```
 
 ## 🚀 Getting Started
 
@@ -67,7 +102,14 @@ The application is highly configurable via `src/main/resources/application.yml` 
    ```
 
 The API will be available at `http://localhost:8080`.
-The Swagger UI documentation can be accessed at `http://localhost:8080/swagger-ui.html`.
+The API specification is available in `src/main/resources/openapi.yaml`.
+
+## 🖥️ Frontend Demo
+
+A live demo is available at **[authora.bermeb.dev](https://authora.bermeb.dev)**.
+
+The demo frontend source code is available in the **[authora-demo](https://github.com/bermeb/authora-demo)** repository — built with React + Vite, 
+it demonstrates user registration, login, OAuth2 flows, protected routes and refresh token rotation.
 
 ## 🧪 Testing
 
