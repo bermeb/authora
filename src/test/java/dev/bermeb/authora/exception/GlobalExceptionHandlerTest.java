@@ -6,6 +6,7 @@ import jakarta.validation.Path;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
@@ -14,7 +15,9 @@ import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 
+import java.net.URI;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,6 +33,11 @@ class GlobalExceptionHandlerTest {
         handler = new GlobalExceptionHandler();
     }
 
+    // Returns a dummy MethodParameter to satisfy the @NotNull constructor arg
+    private MethodParameter dummyMethodParameter() throws NoSuchMethodException {
+        return new MethodParameter(Object.class.getMethod("toString"), -1);
+    }
+
     @Test
     @DisplayName("AuthException → correct status and URI")
     void handleAuthException() {
@@ -39,8 +47,8 @@ class GlobalExceptionHandlerTest {
 
         assertThat(pd.getStatus()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
         assertThat(pd.getDetail()).isEqualTo("Bad token");
-        assertThat(pd.getType().toString()).isEqualTo("https://authora.bermeb.dev/errors/auth-error");
-        assertThat(pd.getProperties()).containsKey("timestamp");
+        assertThat(pd.getType()).isEqualTo(URI.create("https://authora.bermeb.dev/errors/auth-error"));
+        assertThat(pd.getProperties()).isNotNull().containsKey("timestamp");
     }
 
     @Test
@@ -51,18 +59,21 @@ class GlobalExceptionHandlerTest {
         bindingResult.addError(new FieldError("obj", "password", "too short"));
 
         MethodArgumentNotValidException ex =
-                new MethodArgumentNotValidException(null, bindingResult);
+                new MethodArgumentNotValidException(dummyMethodParameter(), bindingResult);
 
         ProblemDetail pd = handler.handleValidation(ex);
 
         assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
         assertThat(pd.getDetail()).isEqualTo("Validation failed");
-        assertThat(pd.getType().toString()).isEqualTo("https://authora.bermeb.dev/errors/validation-error");
+        assertThat(pd.getType()).isEqualTo(URI.create("https://authora.bermeb.dev/errors/validation-error"));
 
+        var props = pd.getProperties();
+        assertThat(props).isNotNull().containsKey("errors");
         @SuppressWarnings("unchecked")
-        Map<String, String> errors = (Map<String, String>) pd.getProperties().get("errors");
-        assertThat(errors).containsEntry("email", "must not be blank")
-                           .containsEntry("password", "too short");
+        Map<String, String> errors = (Map<String, String>) Objects.requireNonNull(props).get("errors");
+        assertThat(errors)
+                .containsEntry("email", "must not be blank")
+                .containsEntry("password", "too short");
     }
 
     @Test
@@ -73,12 +84,14 @@ class GlobalExceptionHandlerTest {
         bindingResult.addError(new FieldError("obj", "email", "second message"));
 
         MethodArgumentNotValidException ex =
-                new MethodArgumentNotValidException(null, bindingResult);
+                new MethodArgumentNotValidException(dummyMethodParameter(), bindingResult);
 
         ProblemDetail pd = handler.handleValidation(ex);
 
+        var props = pd.getProperties();
+        assertThat(props).isNotNull();
         @SuppressWarnings("unchecked")
-        Map<String, String> errors = (Map<String, String>) pd.getProperties().get("errors");
+        Map<String, String> errors = (Map<String, String>) Objects.requireNonNull(props).get("errors");
         assertThat(errors.get("email")).isEqualTo("first message");
     }
 
@@ -96,10 +109,12 @@ class GlobalExceptionHandlerTest {
         ProblemDetail pd = handler.handleConstraintViolation(ex);
 
         assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
-        assertThat(pd.getType().toString()).isEqualTo("https://authora.bermeb.dev/errors/validation-error");
+        assertThat(pd.getType()).isEqualTo(URI.create("https://authora.bermeb.dev/errors/validation-error"));
 
+        var props = pd.getProperties();
+        assertThat(props).isNotNull().containsKey("errors");
         @SuppressWarnings("unchecked")
-        Map<String, String> errors = (Map<String, String>) pd.getProperties().get("errors");
+        Map<String, String> errors = (Map<String, String>) Objects.requireNonNull(props).get("errors");
         assertThat(errors).containsEntry("field1", "must not be null");
     }
 
@@ -112,8 +127,8 @@ class GlobalExceptionHandlerTest {
 
         assertThat(pd.getStatus()).isEqualTo(HttpStatus.FORBIDDEN.value());
         assertThat(pd.getDetail()).isEqualTo("Access denied");
-        assertThat(pd.getType().toString()).isEqualTo("https://authora.bermeb.dev/errors/forbidden");
-        assertThat(pd.getProperties()).containsKey("timestamp");
+        assertThat(pd.getType()).isEqualTo(URI.create("https://authora.bermeb.dev/errors/forbidden"));
+        assertThat(pd.getProperties()).isNotNull().containsKey("timestamp");
     }
 
     @Test
@@ -125,8 +140,8 @@ class GlobalExceptionHandlerTest {
 
         assertThat(pd.getStatus()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
         assertThat(pd.getDetail()).isEqualTo("Authentication failed");
-        assertThat(pd.getType().toString()).isEqualTo("https://authora.bermeb.dev/errors/unauthenticated");
-        assertThat(pd.getProperties()).containsKey("timestamp");
+        assertThat(pd.getType()).isEqualTo(URI.create("https://authora.bermeb.dev/errors/unauthenticated"));
+        assertThat(pd.getProperties()).isNotNull().containsKey("timestamp");
     }
 
     @Test
@@ -138,7 +153,7 @@ class GlobalExceptionHandlerTest {
 
         assertThat(pd.getStatus()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR.value());
         assertThat(pd.getDetail()).isEqualTo("An unexpected error occurred");
-        assertThat(pd.getType().toString()).isEqualTo("https://authora.bermeb.dev/errors/internal-error");
-        assertThat(pd.getProperties()).containsKey("timestamp");
+        assertThat(pd.getType()).isEqualTo(URI.create("https://authora.bermeb.dev/errors/internal-error"));
+        assertThat(pd.getProperties()).isNotNull().containsKey("timestamp");
     }
 }
