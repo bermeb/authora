@@ -8,9 +8,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
@@ -36,7 +35,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class CustomOAuth2UserServiceTest {
 
     @Mock
@@ -86,7 +84,8 @@ class CustomOAuth2UserServiceTest {
      */
     @SuppressWarnings({"unchecked"})
     private void stubProviderUserInfo(Map<String, Object> attributes) {
-        when(restOperations.exchange(any(), any(ParameterizedTypeReference.class)))
+        Mockito.lenient()
+                .when(restOperations.exchange(any(), any(ParameterizedTypeReference.class)))
                 .thenReturn(ResponseEntity.ok(attributes));
     }
 
@@ -209,7 +208,8 @@ class CustomOAuth2UserServiceTest {
         // no "email" key
 
         stubProviderUserInfo(attrs);
-        when(userRepository.findByOauthProviderAndOauthProviderId(any(), any()))
+        Mockito.lenient()
+                .when(userRepository.findByOauthProviderAndOauthProviderId(any(), any()))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.loadUser(userRequest()))
