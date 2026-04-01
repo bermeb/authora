@@ -30,10 +30,10 @@ class UserDetailsServiceImplTest {
     @InjectMocks
     UserDetailsServiceImpl service;
 
-    private User buildUser(String email) {
+    private User buildUser() {
         return User.builder()
                 .id(UUID.randomUUID())
-                .email(email)
+                .email("test@example.com")
                 .passwordHash("$2a$12$hash")
                 .firstName("Test")
                 .lastName("User")
@@ -45,7 +45,7 @@ class UserDetailsServiceImplTest {
     @Test
     @DisplayName("loadUserByUsername returns UserPrincipal when user exists")
     void loadUser_found() {
-        User user = buildUser("test@example.com");
+        User user = buildUser();
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
 
         UserDetails details = service.loadUserByUsername("test@example.com");
@@ -57,7 +57,7 @@ class UserDetailsServiceImplTest {
     @Test
     @DisplayName("loadUserByUsername lowercases the email before lookup")
     void loadUser_lowercasesEmail() {
-        User user = buildUser("test@example.com");
+        User user = buildUser();
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
 
         service.loadUserByUsername("TEST@EXAMPLE.COM");

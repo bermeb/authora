@@ -18,7 +18,6 @@ import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
-import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.client.RestOperations;
 
@@ -85,10 +84,10 @@ class CustomOAuth2UserServiceTest {
      * Stubs the RestOperations to return the given user attributes from the userinfo endpoint.
      * DefaultOAuth2UserService calls exchange(RequestEntity, ParameterizedTypeReference) to fetch user info.
      */
-    @SuppressWarnings({"unchecked", "rawtypes"})
+    @SuppressWarnings({"unchecked"})
     private void stubProviderUserInfo(Map<String, Object> attributes) {
         when(restOperations.exchange(any(), any(ParameterizedTypeReference.class)))
-                .thenReturn((ResponseEntity) ResponseEntity.ok(attributes));
+                .thenReturn(ResponseEntity.ok(attributes));
     }
 
     @Test

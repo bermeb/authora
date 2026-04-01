@@ -49,7 +49,6 @@ class OAuth2AuthenticationSuccessHandlerTest {
 
     OAuth2AuthenticationSuccessHandler handler;
 
-    private AuthoraProperties.Features features;
     private User user;
     private OAuth2UserPrincipal principal;
 
@@ -68,7 +67,7 @@ class OAuth2AuthenticationSuccessHandlerTest {
 
         principal = OAuth2UserPrincipal.of(user, Map.of("sub", "g-123"));
 
-        features = new AuthoraProperties.Features();
+        AuthoraProperties.Features features = new AuthoraProperties.Features();
         features.setOauth2RedirectUri("https://app.example.com/oauth2/callback");
         when(properties.getFeatures()).thenReturn(features);
 
