@@ -43,7 +43,7 @@ spring:
 
 authora:
   jwt:
-    secret: ${JWT_SECRET:CHANGE_ME_IN_PRODUCTION_USE_32_OR_MORE_CHARS}
+    secret: ${JWT_SECRET}
     access-token-expiration-minutes: ${JWT_EXPIRY_MINUTES:15}
     issuer: ${JWT_ISSUER:auth-service}
   refresh-token:
@@ -62,7 +62,7 @@ authora:
     require-numbers: ${PW_REQUIRE_DIGIT:true}
     require-special-characters: ${PW_REQUIRE_SPECIAL:true}
     reset-token-expiry-minutes: ${PW_RESET_EXPIRY_MINUTES:30}
-    pepper: ${PW_PEPPER:dev-pepper-do-not-use-in-production-min32chars}
+    pepper: ${PW_PEPPER}
   email:
     from-address: ${EMAIL_FROM:noreply@example.com}
     from-name: ${EMAIL_FROM_NAME:Auth Service}
