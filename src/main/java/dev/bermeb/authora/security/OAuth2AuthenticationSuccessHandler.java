@@ -69,7 +69,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
 
         String redirectUrl = UriComponentsBuilder
                 .fromUriString(properties.getFeatures().getOauth2RedirectUri())
-                .queryParam("code", code)
+                .fragment("code=" + code)
                 .build().toString();
 
         getRedirectStrategy().sendRedirect(request, response, redirectUrl);
