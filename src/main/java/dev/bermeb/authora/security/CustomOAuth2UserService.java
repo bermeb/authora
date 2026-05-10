@@ -21,6 +21,8 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private final UserRepository userRepository;
 
+    private static final Set<String> TRUST_NULL_VERIFIED = Set.of("google");
+
     @Override
     @Transactional
     public OAuth2User loadUser(OAuth2UserRequest request) throws OAuth2AuthenticationException {
@@ -42,18 +44,16 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         // Check if the OAuth2 provider actually verified this email address
         Boolean providerEmailVerified = oAuth2User.getAttribute("email_verified");
 
+        boolean emailTrusted = Boolean.TRUE.equals(providerEmailVerified)
+                || (providerEmailVerified == null && TRUST_NULL_VERIFIED.contains(provider));
+
         // Try to find an existing user
         User user = userRepository
                 .findByOauthProviderAndOauthProviderId(provider, providerId)
-                .orElseGet(() -> {
-                    // Only skip email-based lookup if the provider explicitly says the email
-                    // is NOT verified (false). A null value means the provider doesn't send
-                    // this field at all (e.g. GitHub) — treat as trusted and look up by email.
-                    if (!Boolean.FALSE.equals(providerEmailVerified)) {
-                        return userRepository.findByEmail(email.toLowerCase()).orElse(null);
-                    }
-                    return null;
-                });
+                .orElseGet(() -> emailTrusted
+                        ? userRepository.findByEmail(email.toLowerCase()).orElse(null)
+                        : null
+                );
 
         // Register new user or refresh OAuth2 fields
         if (user == null) {
@@ -61,7 +61,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                     .email(email.toLowerCase())
                     .firstName(firstName != null ? firstName : "")
                     .lastName(lastName != null ? lastName : "")
-                    .emailVerified(Boolean.TRUE.equals(providerEmailVerified))
+                    .emailVerified(emailTrusted)
                     .oauthProvider(provider)
                     .oauthProviderId(providerId)
                     .profilePictureUrl(picture)
