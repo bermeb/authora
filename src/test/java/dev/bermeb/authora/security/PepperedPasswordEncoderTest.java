@@ -58,6 +58,7 @@ public class PepperedPasswordEncoderTest {
     @Test
     @DisplayName("constructor rejects null pepper")
     void constructor_rejectNullPepper() {
+        //noinspection DataFlowIssue
         assertThatThrownBy(() -> new PepperedPasswordEncoder(BCRYPT_STRENGTH, null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
