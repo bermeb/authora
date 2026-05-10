@@ -16,6 +16,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -109,11 +110,12 @@ class AuthServiceTest {
             when(passwordEncoder.encode(anyString())).thenReturn("$hashed");
             when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-            User result = authService.register("new@example.com", "ValidPass1!", "John", "Doe", request);
+            authService.register("new@example.com", "ValidPass1!", "John", "Doe", request);
 
-            assertThat(result.getEmail()).isEqualTo("new@example.com");
-            assertThat(result.getRoles()).contains(Role.USER);
-            verify(userRepository).save(any(User.class));
+            ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+            verify(userRepository).save(captor.capture());
+            assertThat(captor.getValue().getEmail()).isEqualTo("new@example.com");
+            assertThat(captor.getValue().getRoles()).contains(Role.USER);
             verify(auditLogService).logSuccess(any(), any(), any());
         }
 
@@ -122,9 +124,8 @@ class AuthServiceTest {
         void register_duplicateEmail() {
             when(userRepository.existsByEmail(anyString())).thenReturn(true);
 
-            User result = authService.register("test@example.com", "ValidPass1!", "John", "Doe", request);
+            authService.register("test@example.com", "ValidPass1!", "John", "Doe", request);
 
-            assertThat(result).isNull();
             verify(userRepository, never()).save(any());
             verify(auditLogService).logFailure(
                     eq(AuditLog.AuditEventType.REGISTRATION),
