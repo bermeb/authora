@@ -61,11 +61,11 @@ public class AuthService {
     }
 
     @Transactional
-    public User register(String email, String password, String firstName, String lastName, HttpServletRequest request) {
+    public void register(String email, String password, String firstName, String lastName, HttpServletRequest request) {
         if (userRepository.existsByEmail(email.toLowerCase())) {
             auditLogService.logFailure(AuditLog.AuditEventType.REGISTRATION,
                     email, "Duplicate registration attempt", request);
-            return null;
+            return;
         }
 
         // Validate password strength in case the frontend didn't
@@ -96,7 +96,6 @@ public class AuthService {
             passwordResetTokenRepository.save(verifyToken);
             emailService.sendEmailVerification(user, rawToken);
         }
-        return user;
     }
 
     @Transactional(noRollbackFor = AuthException.class)
