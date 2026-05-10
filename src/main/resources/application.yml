@@ -55,6 +55,12 @@ authora:
     login-attempts-per-minute: ${RATE_LIMIT_RPM:10}
     max-failed-attempts: ${RATE_LIMIT_MAX_FAILURES:5}
     lock-duration-minutes: ${LOCK_DURATION_MINUTES:15}
+    paths:
+      /api/v1/auth/register: { capacity: 3,  period-seconds: 3600 }
+      /api/v1/auth/password/forgot: { capacity: 3,  period-seconds: 3600 }
+      /api/v1/auth/password/reset: { capacity: 5,  period-seconds: 3600 }
+      /api/v1/auth/login: { capacity: 10, period-seconds: 60 }
+      /api/v1/auth/refresh: { capacity: 30, period-seconds: 60 }
   password-policy:
     min-length: ${PW_MIN_LENGTH:12}
     require-uppercase: ${PW_REQUIRE_UPPER:true}

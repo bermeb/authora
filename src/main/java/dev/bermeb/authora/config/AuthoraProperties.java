@@ -8,6 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Validated
@@ -55,6 +56,17 @@ public class AuthoraProperties {
         private int maxFailedAttempts = 5;
         @Min(1)
         private int lockDurationMinutes = 15;
+
+        @Valid
+        private Map<String, PathLimit> paths = Map.of();
+
+        @Data
+        public static class PathLimit {
+            @Min(1)
+            private int capacity;
+            @Min(1)
+            private long periodSeconds;
+        }
     }
 
     @Data

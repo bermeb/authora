@@ -53,18 +53,34 @@ public class RateLimitFilter extends OncePerRequestFilter {
                                     @NonNull HttpServletResponse response,
                                     @NonNull FilterChain chain) throws ServletException, IOException {
 
-        if (!properties.getRateLimit().isEnabled() || !isRateLimited(request)) {
+        if (!properties.getRateLimit().isEnabled()) {
             chain.doFilter(request, response);
             return;
         }
 
+        String matchedPath = matchedPath(request);
+        if (matchedPath == null) {
+            chain.doFilter(request, response);
+            return;
+        }
+
+        AuthoraProperties.RateLimit.PathLimit limit =
+                properties.getRateLimit().getPaths().get(matchedPath);
+        if (limit == null) {
+            // Legacy fallback so any newly added path still has some limit
+            limit = new AuthoraProperties.RateLimit.PathLimit();
+            limit.setCapacity(properties.getRateLimit().getLoginAttemptsPerMinute());
+            limit.setPeriodSeconds(60);
+        }
+
         String ip = request.getRemoteAddr();
-        Bucket bucket = resolveBucket(ip);
+        String key = matchedPath + "|" + ip;
+        Bucket bucket = resolveBucket(key, limit);
 
         if (bucket.tryConsume(1)) {
             chain.doFilter(request, response);
         } else {
-            log.warn("Rate limit exceeded for IP: {}", ip);
+            log.warn("Rate limit exceeded for IP: {} path: {}", ip, matchedPath);
 
             auditLogService.logFailure(AuditLog.AuditEventType.RATE_LIMIT_EXCEEDED,
                     (String) null, "IP: " + ip + " path: " + request.getRequestURI(), request);
@@ -79,8 +95,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
     }
 
-    private Bucket resolveBucket(String ip) {
-        return localBuckets.get(ip, this::newBucket);
+    private Bucket resolveBucket(String key, AuthoraProperties.RateLimit.PathLimit limit) {
+        return localBuckets.get(key, k -> Bucket.builder()
+                .addLimit(Bandwidth.builder()
+                        .capacity(limit.getCapacity())
+                        .refillGreedy(limit.getCapacity(), Duration.ofSeconds(limit.getPeriodSeconds()))
+                        .build())
+                .build()
+        );
     }
 
     private Bucket newBucket(String ip) {
@@ -91,6 +113,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
                         .refillGreedy(requestsPerMinute, Duration.ofMinutes(1))
                         .build())
                 .build();
+    }
+
+    private String matchedPath(HttpServletRequest request) {
+        String requestPath = request.getServletPath();
+        for (String p : RATE_LIMITED_PATHS) {
+            if (requestPath.startsWith(p)) return p;
+        }
+        return null;
     }
 
     private boolean isRateLimited(HttpServletRequest request) {
