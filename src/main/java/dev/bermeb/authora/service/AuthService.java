@@ -89,7 +89,7 @@ public class AuthService {
         return user;
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = AuthException.class)
     public Map<String, Object> login(String email, String password, HttpServletRequest request) {
         User user = userRepository.findByEmail(email.toLowerCase())
                 .orElseThrow(() -> {
