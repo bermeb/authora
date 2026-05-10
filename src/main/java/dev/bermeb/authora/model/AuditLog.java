@@ -60,7 +60,6 @@ public class AuditLog {
         EMAIL_VERIFICATION,
         PASSWORD_CHANGED,
         PASSWORD_RESET_REQUESTED,
-        PASSWORD_RESET_REQUIRED,
         PASSWORD_RESET_COMPLETED,
         ACCOUNT_LOCKED,
         ACCOUNT_UNLOCKED,
@@ -68,7 +67,6 @@ public class AuditLog {
         ACCOUNT_ENABLED,
         ROLE_ASSIGNED,
         ROLE_REMOVED,
-        USER_DELETED,
         RATE_LIMIT_EXCEEDED,
         INVALID_TOKEN,
         SUSPICIOUS_ACTIVITY

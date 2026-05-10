@@ -2,6 +2,7 @@ package dev.bermeb.authora.service;
 
 import dev.bermeb.authora.config.AuthoraProperties;
 import dev.bermeb.authora.exception.AuthException;
+import dev.bermeb.authora.model.AuditLog;
 import dev.bermeb.authora.model.RefreshToken;
 import dev.bermeb.authora.model.User;
 import dev.bermeb.authora.repository.RefreshTokenRepository;
@@ -57,7 +58,12 @@ public class RefreshTokenService {
     public String rotateRefreshToken(String rawToken, HttpServletRequest request) {
         String hash = hash(rawToken);
         RefreshToken existing = refreshTokenRepository.findByToken(hash)
-                .orElseThrow(() -> new AuthException("Invalid refresh token"));
+                .orElseThrow(() -> {
+                    auditLogService.logFailure(AuditLog.AuditEventType.INVALID_TOKEN,
+                            (String) null, "Refresh token not found", request
+                    );
+                    return new AuthException("Invalid refresh token");
+                });
 
         if(existing.isExpired()) {
             throw new AuthException("Refresh token expired or revoked");
@@ -81,17 +87,30 @@ public class RefreshTokenService {
     }
 
     @Transactional(readOnly = true)
-    public User getUserFromToken(String rawToken) {
+    public User getUserFromToken(String rawToken, HttpServletRequest request) {
         return refreshTokenRepository.findByToken(hash(rawToken))
                 .map(RefreshToken::getUser)
-                .orElseThrow(() -> new AuthException("Invalid refresh token"));
+                .orElseThrow(() -> {
+                    auditLogService.logFailure(AuditLog.AuditEventType.INVALID_TOKEN,
+                            (String) null, "Refresh token not found", request
+                    );
+                    return new AuthException("Invalid refresh token");
+                });
     }
 
     @Transactional(readOnly = true)
-    public void validateActive(String rawToken) {
+    public void validateActive(String rawToken, HttpServletRequest request) {
         RefreshToken rt = refreshTokenRepository.findByToken(hash(rawToken))
-                .orElseThrow(() -> new AuthException("Invalid refresh token"));
+                .orElseThrow(() -> {
+                    auditLogService.logFailure(AuditLog.AuditEventType.INVALID_TOKEN,
+                            (String) null, "Refresh token not found", request
+                    );
+                    return new AuthException("Invalid refresh token");
+                });
         if (!rt.isActive()) {
+            auditLogService.logFailure(AuditLog.AuditEventType.INVALID_TOKEN,
+                    rt.getUser().getEmail(), "Refresh token expired or revoked", request
+            );
             throw new AuthException("Refresh token expired or revoked");
         }
     }
