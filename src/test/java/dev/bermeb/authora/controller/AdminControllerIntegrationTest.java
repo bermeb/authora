@@ -84,7 +84,7 @@ class AdminControllerIntegrationTest {
         adminToken = objectMapper.readTree(adminLogin).get("accessToken").asString();
 
         // Register a user
-        String normalReg = mockMvc.perform(post(AUTH_BASE + "/register")
+        mockMvc.perform(post(AUTH_BASE + "/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "email", "normal@example.com", "password", "password12345",
