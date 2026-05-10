@@ -8,6 +8,7 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
@@ -112,15 +113,25 @@ public class AuthoraProperties {
         private long maxAge = 3600;
 
         @AssertTrue(
-                message = "CORS allowed origins must use https:// (localhost is allowed for dev)"
+                message = "CORS allowed origins must use https:// (http://localhost or http://127.0.0.1 allowed for dev)"
         )
         public boolean isAllowedOriginsSecure() {
             if (allowedOrigins == null) return true;
-            return allowedOrigins.stream().allMatch(o ->
-                    o.startsWith("https://")
-                    || o.startsWith("http://localhost")
-                    || o.startsWith("http://127.0.0.1")
-            );
+            return allowedOrigins.stream().allMatch(Cors::isSecureOrigin);
+        }
+
+        private static boolean isSecureOrigin(String origin) {
+            try {
+                URI u = URI.create(origin);
+                String scheme = u.getScheme();
+                String host = u.getHost();
+                if (scheme == null || host == null) return false;
+                if ("https".equals(scheme)) return true;
+                return "http".equals(scheme)
+                        && ("localhost".equals(host) || "127.0.0.1".equals(host));
+            } catch (IllegalArgumentException e) {
+                return false;
+            }
         }
     }
 }
