@@ -28,7 +28,7 @@ public class AuditLog {
     @Column(name = "actor_user_id")
     private UUID actorUserId;
 
-    @Column(name = "actor_email", length = 255)
+    @Column(name = "actor_email")
     private String actorEmail;
 
     @Enumerated(EnumType.STRING)
@@ -41,7 +41,7 @@ public class AuditLog {
     @Column(name = "ip_address", length = 45)
     private String ipAddress;
 
-    @Column(name = "user_agent", length = 255)
+    @Column(name = "user_agent")
     private String userAgent;
 
     @Column(name = "created_at", nullable = false, updatable = false)
