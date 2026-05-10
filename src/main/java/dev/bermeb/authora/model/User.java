@@ -37,6 +37,7 @@ public class User {
     private String lastName;
 
     @Column(name = "email_verified", nullable = false)
+    @Builder.Default
     private boolean emailVerified = false;
 
     @Column(nullable = false)
