@@ -260,7 +260,7 @@ class AuthServiceTest {
         @Test
         @DisplayName("with rotateOnUse=true rotates token and returns new access token")
         void refresh_withRotation() {
-            when(refreshTokenService.getUserFromToken("rawToken")).thenReturn(testUser);
+            when(refreshTokenService.getUserFromToken("rawToken", request)).thenReturn(testUser);
             when(refreshTokenService.rotateRefreshToken("rawToken", request)).thenReturn("newRawToken");
             when(jwtService.generateAccessToken(any())).thenReturn("newAccessToken");
             when(jwtService.getAccessTokenExpirationSeconds()).thenReturn(900L);
@@ -276,7 +276,7 @@ class AuthServiceTest {
         @DisplayName("with rotateOnUse=false reuses the same refresh token")
         void refresh_withoutRotation() {
             properties.getRefreshToken().setRotateOnUse(false);
-            when(refreshTokenService.getUserFromToken("rawToken")).thenReturn(testUser);
+            when(refreshTokenService.getUserFromToken("rawToken", request)).thenReturn(testUser);
             when(jwtService.generateAccessToken(any())).thenReturn("newAccessToken");
             when(jwtService.getAccessTokenExpirationSeconds()).thenReturn(900L);
 
@@ -290,7 +290,7 @@ class AuthServiceTest {
         @DisplayName("disabled account throws AuthException")
         void refresh_disabledAccount() {
             testUser.setEnabled(false);
-            when(refreshTokenService.getUserFromToken("rawToken")).thenReturn(testUser);
+            when(refreshTokenService.getUserFromToken("rawToken", request)).thenReturn(testUser);
 
             assertThatThrownBy(() -> authService.refresh("rawToken", request))
                     .isInstanceOf(AuthException.class)
@@ -302,7 +302,7 @@ class AuthServiceTest {
         void refresh_lockedAccount() {
             testUser.setAccountLocked(true);
             testUser.setLockedUntil(Instant.now().plusSeconds(600));
-            when(refreshTokenService.getUserFromToken("rawToken")).thenReturn(testUser);
+            when(refreshTokenService.getUserFromToken("rawToken", request)).thenReturn(testUser);
 
             assertThatThrownBy(() -> authService.refresh("rawToken", request))
                     .isInstanceOf(AuthException.class)

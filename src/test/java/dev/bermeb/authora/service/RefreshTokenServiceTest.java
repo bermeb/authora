@@ -229,7 +229,7 @@ class RefreshTokenServiceTest {
                     .build();
             when(refreshTokenRepository.findByToken(anyString())).thenReturn(Optional.of(active));
 
-            User result = refreshTokenService.getUserFromToken(raw);
+            User result = refreshTokenService.getUserFromToken(raw, request);
 
             assertThat(result).isEqualTo(testUser);
         }
@@ -247,7 +247,7 @@ class RefreshTokenServiceTest {
                     .build();
             when(refreshTokenRepository.findByToken(anyString())).thenReturn(Optional.of(expired));
 
-            assertThat(refreshTokenService.getUserFromToken(raw)).isEqualTo(testUser);
+            assertThat(refreshTokenService.getUserFromToken(raw, request)).isEqualTo(testUser);
         }
 
         @Test
@@ -263,7 +263,7 @@ class RefreshTokenServiceTest {
                     .build();
             when(refreshTokenRepository.findByToken(anyString())).thenReturn(Optional.of(revoked));
 
-            assertThat(refreshTokenService.getUserFromToken(raw)).isEqualTo(testUser);
+            assertThat(refreshTokenService.getUserFromToken(raw, request)).isEqualTo(testUser);
         }
 
         @Test
@@ -271,7 +271,7 @@ class RefreshTokenServiceTest {
         void getUser_unknownToken() {
             when(refreshTokenRepository.findByToken(anyString())).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> refreshTokenService.getUserFromToken("nope"))
+            assertThatThrownBy(() -> refreshTokenService.getUserFromToken("nope", request))
                     .isInstanceOf(AuthException.class);
         }
     }
@@ -293,7 +293,7 @@ class RefreshTokenServiceTest {
                     .build();
             when(refreshTokenRepository.findByToken(anyString())).thenReturn(Optional.of(active));
 
-            refreshTokenService.validateActive(raw);
+            refreshTokenService.validateActive(raw, request);
         }
 
         @Test
@@ -309,7 +309,7 @@ class RefreshTokenServiceTest {
                     .build();
             when(refreshTokenRepository.findByToken(anyString())).thenReturn(Optional.of(expired));
 
-            assertThatThrownBy(() -> refreshTokenService.validateActive(raw))
+            assertThatThrownBy(() -> refreshTokenService.validateActive(raw, request))
                     .isInstanceOf(AuthException.class)
                     .hasMessageContaining("expired or revoked");
         }
@@ -327,7 +327,7 @@ class RefreshTokenServiceTest {
                     .build();
             when(refreshTokenRepository.findByToken(anyString())).thenReturn(Optional.of(revoked));
 
-            assertThatThrownBy(() -> refreshTokenService.validateActive(raw))
+            assertThatThrownBy(() -> refreshTokenService.validateActive(raw, request))
                     .isInstanceOf(AuthException.class)
                     .hasMessageContaining("expired or revoked");
         }
