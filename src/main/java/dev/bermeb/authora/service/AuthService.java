@@ -86,7 +86,6 @@ public class AuthService {
 
         if (properties.getFeatures().isEmailVerificationRequired()) {
             String rawToken = generateSecureToken();
-            passwordResetTokenRepository.deleteByUser(user);
             PasswordResetToken verifyToken = PasswordResetToken.builder()
                     .token(TokenHashUtil.hash(rawToken))
                     .user(user)
@@ -206,7 +205,7 @@ public class AuthService {
 
             String rawToken = generateSecureToken();
             // Invalidate any existing reset tokens before creating a new one
-            passwordResetTokenRepository.deleteByUser(user);
+            passwordResetTokenRepository.deleteByUserAndTokenType(user, PasswordResetToken.TokenType.PASSWORD_RESET);
             PasswordResetToken token = PasswordResetToken.builder()
                     .token(TokenHashUtil.hash(rawToken))
                     .user(user)
