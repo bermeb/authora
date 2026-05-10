@@ -1,6 +1,7 @@
 package dev.bermeb.authora.config;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -108,6 +109,9 @@ public class AuthoraProperties {
         private boolean allowedCredentials = true;
         private long maxAge = 3600;
 
+        @AssertTrue(
+                message = "CORS allowed origins must use https:// (localhost is allowed for dev)"
+        )
         public boolean isAllowedOriginsSecure() {
             if (allowedOrigins == null) return true;
             return allowedOrigins.stream().allMatch(o ->
