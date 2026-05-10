@@ -137,9 +137,13 @@ public class AuthService {
 
         checkAccountStatus(user);
 
-        String newRefreshToken = properties.getRefreshToken().isRotateOnUse()
-                ? refreshTokenService.rotateRefreshToken(rawRefreshToken, request)
-                : rawRefreshToken;
+        String newRefreshToken;
+        if (properties.getRefreshToken().isRotateOnUse()) {
+            newRefreshToken = refreshTokenService.rotateRefreshToken(rawRefreshToken, request);
+        } else {
+            refreshTokenService.validateActive(rawRefreshToken);
+            newRefreshToken = rawRefreshToken;
+        }
 
         UserPrincipal principal = UserPrincipal.of(user);
         String accessToken = jwtService.generateAccessToken(principal);

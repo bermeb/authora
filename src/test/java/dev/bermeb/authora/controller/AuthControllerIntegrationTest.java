@@ -378,8 +378,8 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("POST /refresh with already-rotated token → 401 (rotated token cannot be reused)")
-    void refresh_rotatedToken_cannotBeReused() throws Exception {
+    @DisplayName("POST /refresh replaying a rotated token revokes ALL sessions (reuse detection)")
+    void refresh_rotatedToken_triggersReuseDetection() throws Exception {
         mockMvc.perform(post(BASE + "/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
@@ -398,18 +398,26 @@ class AuthControllerIntegrationTest {
         String originalRefreshToken = objectMapper.readTree(loginResp).get("refreshToken").asString();
 
         // First refresh - legitimate use; rotates the token and issues a new one
-        mockMvc.perform(post(BASE + "/refresh")
+        String firstRefreshResp = mockMvc.perform(post(BASE + "/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("refreshToken", originalRefreshToken))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.refreshToken").exists());
+                .andExpect(jsonPath("$.refreshToken").exists())
+                .andReturn().getResponse().getContentAsString();
+        String rotatedRefreshToken = objectMapper.readTree(firstRefreshResp).get("refreshToken").asString();
 
-        // Second use of the ORIGINAL (now rotated/revoked) token - must be rejected
-        // getUserFromToken rejects it because isActive() returns false (revoked=true).
-        // The concurrent reuse-detection path (revokeAllForUser) is unit-tested in RefreshTokenServiceTest.
+        // Replay the ORIGINAL (now rotated/revoked) token. rotateRefreshToken's reuse-detection
+        // branch must fire: the attacker gets 401 AND every active session for the user is revoked.
         mockMvc.perform(post(BASE + "/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("refreshToken", originalRefreshToken))))
+                .andExpect(status().isUnauthorized());
+
+        // The token issued by the legitimate first-refresh must now also be rejected -
+        // proves revokeAllForUser ran (not just a simple "already-revoked" rejection).
+        mockMvc.perform(post(BASE + "/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("refreshToken", rotatedRefreshToken))))
                 .andExpect(status().isUnauthorized());
     }
 }

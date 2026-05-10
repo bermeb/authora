@@ -81,9 +81,17 @@ public class RefreshTokenService {
     @Transactional(readOnly = true)
     public User getUserFromToken(String rawToken) {
         return refreshTokenRepository.findByToken(hash(rawToken))
-                .filter(RefreshToken::isActive)
                 .map(RefreshToken::getUser)
-                .orElseThrow(() -> new AuthException("Invalid or expired refresh token"));
+                .orElseThrow(() -> new AuthException("Invalid refresh token"));
+    }
+
+    @Transactional(readOnly = true)
+    public void validateActive(String rawToken) {
+        RefreshToken rt = refreshTokenRepository.findByToken(hash(rawToken))
+                .orElseThrow(() -> new AuthException("Invalid refresh token"));
+        if (!rt.isActive()) {
+            throw new AuthException("Refresh token expired or revoked");
+        }
     }
 
     @Transactional
