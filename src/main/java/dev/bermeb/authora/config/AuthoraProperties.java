@@ -1,5 +1,6 @@
 package dev.bermeb.authora.config;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -13,12 +14,18 @@ import java.util.List;
 @ConfigurationProperties(prefix = "authora")
 public class AuthoraProperties {
 
+    @Valid
     private Jwt jwt = new Jwt();
+    @Valid
     private RefreshToken refreshToken = new RefreshToken();
+    @Valid
     private RateLimit rateLimit = new RateLimit();
+    @Valid
     private PasswordPolicy passwordPolicy = new PasswordPolicy();
+    @Valid
     private Email email = new Email();
     private Features features = new Features();
+    @Valid
     private Cors cors = new Cors();
 
     @Data
