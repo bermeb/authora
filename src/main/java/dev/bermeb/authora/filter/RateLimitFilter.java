@@ -105,29 +105,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
         );
     }
 
-    private Bucket newBucket(String ip) {
-        int requestsPerMinute = properties.getRateLimit().getLoginAttemptsPerMinute();
-        return Bucket.builder()
-                .addLimit(Bandwidth.builder()
-                        .capacity(requestsPerMinute)
-                        .refillGreedy(requestsPerMinute, Duration.ofMinutes(1))
-                        .build())
-                .build();
-    }
-
     private String matchedPath(HttpServletRequest request) {
         String requestPath = request.getServletPath();
         for (String p : RATE_LIMITED_PATHS) {
             if (requestPath.startsWith(p)) return p;
         }
         return null;
-    }
-
-    private boolean isRateLimited(HttpServletRequest request) {
-        String path = request.getServletPath();
-        for (String p : RATE_LIMITED_PATHS) {
-            if (path.startsWith(p)) return true;
-        }
-        return false;
     }
 }
