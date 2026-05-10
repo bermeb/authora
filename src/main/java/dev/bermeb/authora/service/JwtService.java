@@ -1,6 +1,7 @@
 package dev.bermeb.authora.service;
 
 import dev.bermeb.authora.config.AuthoraProperties;
+import dev.bermeb.authora.security.UserPrincipal;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -33,14 +34,12 @@ public class JwtService {
                 properties.getJwt().getSecret().getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateAccessToken(UserDetails userDetails) {
+    public String generateAccessToken(UserPrincipal principal) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("roles", userDetails.getAuthorities()
-                .stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.toList())
-        );
-        return buildToken(claims, userDetails.getUsername(),
+        claims.put("email", principal.getUser().getEmail());
+        claims.put("roles", principal.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority).collect(Collectors.toList()));
+        return buildToken(claims, principal.getUser().getId().toString(),
                 properties.getJwt().getAccessTokenExpirationMinutes() * 60_000L);
     }
 
@@ -57,15 +56,18 @@ public class JwtService {
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
         try {
-            final String username = extractUsername(token);
-            return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
+            final UserPrincipal up = (UserPrincipal) userDetails;
+            return extractUserId(token).equals(up.getUser().getId().toString())
+                    && !isTokenExpired(token);
         } catch (JwtException e) {
             log.warn("JWT validation failed: {}" ,e.getMessage());
             return false;
         }
     }
 
-    public String extractUsername(String token) { return extractAllClaims(token).getSubject(); }
+    public String extractUserId(String token) { return extractAllClaims(token).getSubject(); }
+
+    public String extractEmail(String token) { return extractAllClaims(token).get("email", String.class); }
 
     public Date extractExpiration(String token) { return extractAllClaims(token).getExpiration(); }
 

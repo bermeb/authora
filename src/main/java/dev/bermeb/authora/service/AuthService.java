@@ -122,7 +122,9 @@ public class AuthService {
             userRepository.save(user);
 
 
-            String accessToken = jwtService.generateAccessToken((UserDetails) Objects.requireNonNull(auth.getPrincipal()));
+            String accessToken = jwtService.generateAccessToken(
+                    (UserPrincipal) Objects.requireNonNull(auth.getPrincipal())
+            );
             String refreshToken = refreshTokenService.createRefreshToken(user, request);
 
             auditLogService.logSuccess(AuditLog.AuditEventType.LOGIN_SUCCESS, user, request);
