@@ -59,21 +59,23 @@ public class RefreshTokenService {
         RefreshToken existing = refreshTokenRepository.findByToken(hash)
                 .orElseThrow(() -> new AuthException("Invalid refresh token"));
 
-        if (!existing.isActive()) {
-            if(existing.isRevoked()) {
-                log.warn("Refresh token reuse detected for user {}", existing.getUser().getEmail());
-                refreshTokenRepository.revokeAllForUser(
-                        existing.getUser(), Instant.now(), "TOKEN_REUSE_DETECTED"
-                );
-                auditLogService.logSuspiciousActivity(existing.getUser(),
-                        "Refresh token reuse detected", request
-                );
-            }
+        if(existing.isExpired()) {
             throw new AuthException("Refresh token expired or revoked");
         }
 
-        existing.revoke("ROTATED");
-        refreshTokenRepository.save(existing);
+        // Atomic compare-and-set
+        int updated = refreshTokenRepository.markRevoked(existing.getId(), Instant.now(), "ROTATED");
+        if (updated == 0) {
+            // Already revoked: either a reuse or another in-flight rotation. Treat as reuse
+            log.warn("Refresh token reuse detected for user {}", existing.getUser().getEmail());
+            refreshTokenRepository.revokeAllForUser(
+                    existing.getUser(), Instant.now(), "TOKEN_REUSE_DETECTED"
+            );
+            auditLogService.logSuspiciousActivity(existing.getUser(),
+                    "Refresh token reuse detected", request
+            );
+            throw new AuthException("Refresh token expired or revoked");
+        }
 
         return createRefreshToken(existing.getUser(), request);
     }
