@@ -67,7 +67,8 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                     .profilePictureUrl(picture)
                     .roles(Set.of(Role.USER))
                     .build();
-            log.info("Registering new OAuth2 user: {} via {}", email, provider);
+            log.info("Registering new OAuth2 user via {}", provider);
+            log.debug("New OAuth2 user email: {}", email);
         } else {
             if (user.isLocalUser() && !user.isEmailVerified()) {
                 log.warn("OAuth2 link adopting unverified local account for {} via {}; clearing password",
