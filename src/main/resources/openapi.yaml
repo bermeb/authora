@@ -101,6 +101,13 @@ components:
           minLength: 12
           maxLength: 255
 
+    VerifyEmailRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+
     ChangePasswordRequest:
       type: object
       required: [currentPassword, newPassword]
@@ -516,22 +523,22 @@ paths:
           $ref: '#/components/responses/Unauthorized'
 
   /api/v1/auth/email/verify:
-    get:
+    post:
       tags: [Email]
       summary: Verify email address
       description: |
-        Called when the user clicks the verification link in the welcome email.
-        The `token` query parameter is a one-time, time-limited token (default 60 min).
-        On success, `emailVerified` is set to `true` and the user can log in.
+        Confirms an email address using the one-time, time-limited token from the
+        verification email. The frontend reads `token` from the URL and POSTs it here.
+        Using POST (rather than GET) prevents corporate mail scanners from consuming
+        the token via URL prefetching.
       operationId: verifyEmail
       security: []
-      parameters:
-        - name: token
-          in: query
-          required: true
-          description: Raw verification token from the email link
-          schema:
-            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailRequest'
       responses:
         "200":
           description: Email verified

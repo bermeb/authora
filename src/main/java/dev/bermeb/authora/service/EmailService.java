@@ -10,6 +10,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.UriComponentsBuilder;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
@@ -28,8 +29,9 @@ public class EmailService {
     @Async
     public void sendEmailVerification(User user, String rawToken) {
         // Build the full verification URL using the configured base URL
-        String link = properties.getEmail().getBaseUrl()
-                + "/api/v1/auth/email/verify?token=" + rawToken;
+        String link = UriComponentsBuilder.fromUriString(
+                        properties.getFeatures().getEmailVerifyRedirectUri())
+                .queryParam("token", rawToken).build().toString();
 
         Context ctx = baseContext(user);
         ctx.setVariable("verificationLink", link);
@@ -46,8 +48,9 @@ public class EmailService {
     @Async
     public void sendPasswordReset(User user, String rawToken) {
         // Build the full reset URL using the configured base URL
-        String link = properties.getEmail().getBaseUrl()
-                + "/api/v1/auth/password/reset?token=" + rawToken;
+        String link = UriComponentsBuilder.fromUriString(
+                        properties.getFeatures().getPasswordResetRedirectUri())
+                .queryParam("token", rawToken).build().toString();
 
         Context ctx = baseContext(user);
         ctx.setVariable("resetLink", link);

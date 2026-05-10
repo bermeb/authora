@@ -100,6 +100,8 @@ public class AuthoraProperties {
         private boolean auditLogEnabled = true;
         private boolean twoFactorEnabled = false;
         private String oauth2RedirectUri = "http://localhost:3000/oauth2/callback";
+        private String emailVerifyRedirectUri = "http://localhost:3000/verify-email";
+        private String passwordResetRedirectUri = "http://localhost:3000/reset-password";
     }
 
     @Data
