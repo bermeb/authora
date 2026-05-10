@@ -43,10 +43,10 @@ public class JwtService {
                 properties.getJwt().getAccessTokenExpirationMinutes() * 60_000L);
     }
 
-    private String buildToken(Map<String, Object> claims, String email, long expirationMs) {
+    private String buildToken(Map<String, Object> claims, String subject, long expirationMs) {
         return Jwts.builder()
                 .claims(claims)
-                .subject(email)
+                .subject(subject)
                 .issuer(properties.getJwt().getIssuer())
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expirationMs))
