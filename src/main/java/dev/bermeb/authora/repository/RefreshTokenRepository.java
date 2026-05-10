@@ -5,6 +5,7 @@ import dev.bermeb.authora.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
@@ -33,5 +34,5 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
     @Modifying(clearAutomatically = true)
     @Query("UPDATE RefreshToken rt SET rt.revoked = true, rt.revokedAt = :now, rt.revokedReason = :reason " +
             "WHERE rt.id = :id AND rt.revoked = false")
-    int markRevoked(UUID uuid, Instant now, String reason);
+    int markRevoked(@Param("id") UUID id, @Param("now") Instant now, @Param("reason") String reason);
 }

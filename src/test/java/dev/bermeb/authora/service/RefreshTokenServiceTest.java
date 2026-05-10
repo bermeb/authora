@@ -139,7 +139,9 @@ class RefreshTokenServiceTest {
         @DisplayName("revokes old token and returns new raw token")
         void rotate_success() {
             String rawOld = "oldRawToken";
+            UUID existingId = UUID.randomUUID();
             RefreshToken existing = RefreshToken.builder()
+                    .id(existingId)
                     .token(TokenHashUtil.hash(rawOld))
                     .user(testUser)
                     .expiresAt(Instant.now().plusSeconds(3600))
@@ -147,6 +149,8 @@ class RefreshTokenServiceTest {
                     .revoked(false)
                     .build();
             when(refreshTokenRepository.findByToken(anyString())).thenReturn(Optional.of(existing));
+            when(refreshTokenRepository.markRevoked(eq(existingId), any(Instant.class), eq("ROTATED")))
+                    .thenReturn(1);
             when(refreshTokenRepository.findByUserAndRevokedFalseOrderByCreatedAtAsc(any()))
                     .thenReturn(new ArrayList<>());
             when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -154,8 +158,7 @@ class RefreshTokenServiceTest {
             String newToken = refreshTokenService.rotateRefreshToken(rawOld, request);
 
             assertThat(newToken).isNotBlank().isNotEqualTo(rawOld);
-            assertThat(existing.isRevoked()).isTrue();
-            assertThat(existing.getRevokedReason()).isEqualTo("ROTATED");
+            verify(refreshTokenRepository).markRevoked(eq(existingId), any(Instant.class), eq("ROTATED"));
         }
 
         @Test
