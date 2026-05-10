@@ -11,6 +11,7 @@ import dev.bermeb.authora.repository.UserRepository;
 import dev.bermeb.authora.security.UserPrincipal;
 import dev.bermeb.authora.util.PasswordPolicyValidator;
 import dev.bermeb.authora.util.TokenHashUtil;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,12 +50,23 @@ public class AuthService {
     private final AuthoraProperties properties;
     private final CacheManager cacheManager;
 
+    // Used on login to eliminate timing differences on authentication for valid emails
+    private String dummyHash;
+
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
+    @PostConstruct
+    void initDummyHash() {
+        // Randomize password hash to eliminate small timing differences
+        this.dummyHash = passwordEncoder.encode(SECURE_RANDOM.nextInt() + "__dummy__" + SECURE_RANDOM.nextInt());
+    }
 
     @Transactional
     public User register(String email, String password, String firstName, String lastName, HttpServletRequest request) {
         if (userRepository.existsByEmail(email.toLowerCase())) {
-            throw new AuthException("Email already registered", HttpStatus.CONFLICT);
+            auditLogService.logFailure(AuditLog.AuditEventType.REGISTRATION,
+                    email, "Duplicate registration attempt", request);
+            return null;
         }
 
         // Validate password strength in case the frontend didn't
@@ -91,12 +103,12 @@ public class AuthService {
 
     @Transactional(noRollbackFor = AuthException.class)
     public Map<String, Object> login(String email, String password, HttpServletRequest request) {
-        User user = userRepository.findByEmail(email.toLowerCase())
-                .orElseThrow(() -> {
-                    // Log failure even for unknown emails; return generic message
-                    auditLogService.logFailure(AuditLog.AuditEventType.LOGIN_FAILURE, email, "User not found", request);
-                    return new AuthException("Invalid credentials");
-                });
+        User user = userRepository.findByEmail(email.toLowerCase()).orElse(null);
+        if (user == null) {
+            passwordEncoder.matches(password, dummyHash); // consume bcrypt time
+            auditLogService.logFailure(AuditLog.AuditEventType.LOGIN_FAILURE, email, "User not found", request);
+            throw new AuthException("Invalid credentials");
+        }
 
         checkAccountStatus(user);
 

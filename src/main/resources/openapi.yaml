@@ -179,18 +179,6 @@ components:
         expiresIn:
           type: integer
 
-    RegisterResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-
-        message:
-          type: string
-        userId:
-          type: string
-          format: uuid
-
     SuccessResponse:
       type: object
       properties:
@@ -390,12 +378,12 @@ paths:
       tags: [Authentication]
       summary: Register a new user account
       description: |
-        Creates a new user with the `USER` role.
+        Creates a new user with the `USER` role and sends a verification link if 
+        `email-verification-required` is enabled (default).
 
-        If `email-verification-required` is enabled (default), the account is inactive
-        until the user clicks the verification link in the welcome email.
+        The account is inactive until the user clicks the verification link in the welcome email.
 
-        Returns `409` if the email is already registered.
+        Returns `202` with a generic message. If the address is already in use, the request is silently ignored.
       operationId: register
       security: []   # public endpoint
       requestBody:
@@ -405,20 +393,14 @@ paths:
             schema:
               $ref: '#/components/schemas/RegisterRequest'
       responses:
-        "201":
-          description: User created successfully
+        "202":
+          description: Request accepted (verification email sent if registration was needed)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RegisterResponse'
+                $ref: '#/components/schemas/SuccessResponse'
         "400":
           $ref: '#/components/responses/BadRequest'
-        "401":
-          description: Email already registered
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
         "429":
           $ref: '#/components/responses/TooManyRequests'
 

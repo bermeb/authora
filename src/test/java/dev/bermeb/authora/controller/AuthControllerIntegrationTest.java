@@ -40,7 +40,7 @@ class AuthControllerIntegrationTest {
     private static final String BASE = "/api/v1/auth";
 
     @Test
-    @DisplayName("POST /register → 201 Created")
+    @DisplayName("POST /register → 202 Accepted")
     void register_success() throws Exception {
         mockMvc.perform(post(BASE + "/register")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -50,30 +50,31 @@ class AuthControllerIntegrationTest {
                                 "firstName", "New",
                                 "lastName", "User"
                         ))))
-                .andExpect(status().isCreated())
+                .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.userId").exists());
+                .andExpect(jsonPath("$.userId").doesNotExist());
     }
 
     @Test
-    @DisplayName("POST /register duplicate email → 401")
+    @DisplayName("POST /register duplicate email → 202 Accepted")
     void register_duplicate() throws Exception {
+        Map<String, String> body = Map.of(
+                "email", "dup@example.com", "password", "password123345",
+                "firstName", "A", "lastName", "B"
+        );
+
         // Register first time
         mockMvc.perform(post(BASE + "/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(Map.of(
-                        "email", "dup@example.com", "password", "password12345",
-                        "firstName", "A", "lastName", "B"
-                )))).andExpect(status().isCreated());
+                .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isAccepted());
 
-        // Register second time - same email -> 409 Conflict
+        // Register second time - same email -> 202 Accepted
         mockMvc.perform(post(BASE + "/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of(
-                                "email", "dup@example.com", "password", "password12345",
-                                "firstName", "A", "lastName", "B"
-                        ))))
-                .andExpect(status().isConflict());
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.success").value(true));
     }
 
     @Test
@@ -100,7 +101,7 @@ class AuthControllerIntegrationTest {
                 .content(objectMapper.writeValueAsString(Map.of(
                         "email", "logintest@example.com", "password", "password12345",
                         "firstName", "Login", "lastName", "Test"
-                )))).andExpect(status().isCreated());
+                )))).andExpect(status().isAccepted());
 
         // Then login
         mockMvc.perform(post(BASE + "/login")
@@ -124,7 +125,7 @@ class AuthControllerIntegrationTest {
                 .content(objectMapper.writeValueAsString(Map.of(
                         "email", "wrongpw@example.com", "password", "correct12345",
                         "firstName", "A", "lastName", "B"
-                )))).andExpect(status().isCreated());
+                )))).andExpect(status().isAccepted());
 
         mockMvc.perform(post(BASE + "/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -162,7 +163,7 @@ class AuthControllerIntegrationTest {
                 .content(objectMapper.writeValueAsString(Map.of(
                         "email", "metest@example.com", "password", "password12345",
                         "firstName", "Me", "lastName", "Test"
-                )))).andExpect(status().isCreated());
+                )))).andExpect(status().isAccepted());
 
         String response = mockMvc.perform(post(BASE + "/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -188,7 +189,7 @@ class AuthControllerIntegrationTest {
                 .content(objectMapper.writeValueAsString(Map.of(
                         "email", "refreshtest@example.com", "password", "password12345",
                         "firstName", "Refresh", "lastName", "Test"
-                )))).andExpect(status().isCreated());
+                )))).andExpect(status().isAccepted());
 
         String loginResp = mockMvc.perform(post(BASE + "/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -217,7 +218,7 @@ class AuthControllerIntegrationTest {
                 .content(objectMapper.writeValueAsString(Map.of(
                         "email", "logouttest@example.com", "password", "password12345",
                         "firstName", "Logout", "lastName", "Test"
-                )))).andExpect(status().isCreated());
+                )))).andExpect(status().isAccepted());
 
         String loginResp = mockMvc.perform(post(BASE + "/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -246,7 +247,7 @@ class AuthControllerIntegrationTest {
                 .content(objectMapper.writeValueAsString(Map.of(
                         "email", "logoutalltest@example.com", "password", "password12345",
                         "firstName", "LogoutAll", "lastName", "Test"
-                )))).andExpect(status().isCreated());
+                )))).andExpect(status().isAccepted());
 
         String loginResp = mockMvc.perform(post(BASE + "/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -272,7 +273,7 @@ class AuthControllerIntegrationTest {
                 .content(objectMapper.writeValueAsString(Map.of(
                         "email", "changepw@example.com", "password", "password12345",
                         "firstName", "Change", "lastName", "PW"
-                )))).andExpect(status().isCreated());
+                )))).andExpect(status().isAccepted());
 
         String loginResp = mockMvc.perform(post(BASE + "/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -316,7 +317,7 @@ class AuthControllerIntegrationTest {
                                 "email", "lockout@example.com", "password", "password12345",
                                 "firstName", "Lock", "lastName", "Out"
                         ))))
-                .andExpect(status().isCreated());
+                .andExpect(status().isAccepted());
 
         // Exhaust the 5 allowed attempts with a wrong password
         for (int i = 0; i < 5; i++) {
@@ -347,7 +348,7 @@ class AuthControllerIntegrationTest {
                                 "email", "oauth2user@example.com", "password", "password12345",
                                 "firstName", "OAuth2", "lastName", "User"
                         ))))
-                .andExpect(status().isCreated());
+                .andExpect(status().isAccepted());
 
         String loginResp = mockMvc.perform(post(BASE + "/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -386,7 +387,7 @@ class AuthControllerIntegrationTest {
                                 "email", "reusedetect@example.com", "password", "password12345",
                                 "firstName", "Reuse", "lastName", "Detect"
                         ))))
-                .andExpect(status().isCreated());
+                .andExpect(status().isAccepted());
 
         String loginResp = mockMvc.perform(post(BASE + "/login")
                         .contentType(MediaType.APPLICATION_JSON)

@@ -25,19 +25,18 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<RegisterResponse> register(
+    public ResponseEntity<SuccessResponse> register(
             @Valid @RequestBody RegisterRequest body,
             HttpServletRequest request) {
-        User user = authService.register(
+        authService.register(
                 body.getEmail(), body.getPassword(), body.getFirstName(), body.getLastName(), request
         );
 
-        RegisterResponse response = new RegisterResponse();
+        SuccessResponse response = new SuccessResponse();
         response.setSuccess(true);
-        response.setMessage("Registration successful. Please verify your email.");
-        response.setUserId(user.getId());
+        response.setMessage("If registration is required for this address, a verification email has been sent.");
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.accepted().body(response);
     }
 
     @PostMapping("/login")

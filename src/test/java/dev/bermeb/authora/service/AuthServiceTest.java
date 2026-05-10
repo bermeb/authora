@@ -2,6 +2,7 @@ package dev.bermeb.authora.service;
 
 import dev.bermeb.authora.config.AuthoraProperties;
 import dev.bermeb.authora.exception.AuthException;
+import dev.bermeb.authora.model.AuditLog;
 import dev.bermeb.authora.model.PasswordResetToken;
 import dev.bermeb.authora.model.Role;
 import dev.bermeb.authora.model.User;
@@ -117,16 +118,20 @@ class AuthServiceTest {
         }
 
         @Test
-        @DisplayName("should throw when email already registered")
+        @DisplayName("should silently no-op when email already registered")
         void register_duplicateEmail() {
             when(userRepository.existsByEmail(anyString())).thenReturn(true);
 
-            assertThatThrownBy(() ->
-                    authService.register("test@example.com", "pass", "A", "B", request)
-            ).isInstanceOf(AuthException.class)
-                    .hasMessageContaining("already registered");
+            User result = authService.register("test@example.com", "ValidPass1!", "John", "Doe", request);
 
+            assertThat(result).isNull();
             verify(userRepository, never()).save(any());
+            verify(auditLogService).logFailure(
+                    eq(AuditLog.AuditEventType.REGISTRATION),
+                    eq("test@example.com"),
+                    anyString(),
+                    any()
+            );
         }
     }
 
