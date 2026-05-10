@@ -79,6 +79,8 @@ authora:
     email-verification-required: ${FEATURE_EMAIL_VERIFY:true}
     audit-log-enabled: ${FEATURE_AUDIT_LOG:true}
     oauth2-redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:3000/oauth2/callback}
+    email-verify-redirect-uri: ${EMAIL_VERIFY_REDIRECT_URI:http://localhost:3000/verify-email}
+    password-reset-redirect-uri: ${PASSWORD_RESET_REDIRECT_URI:http://localhost:3000/reset-password}
   cors:
     allowed-origins:
       - ${CORS_ORIGIN:http://localhost:3000}
