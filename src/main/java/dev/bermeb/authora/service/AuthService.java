@@ -63,8 +63,11 @@ public class AuthService {
     @Transactional
     public void register(String email, String password, String firstName, String lastName, HttpServletRequest request) {
         if (userRepository.existsByEmail(email.toLowerCase())) {
+            // Consume bcrypt time so duplicate-email cannot be detected via response timing
+            passwordEncoder.matches(password, dummyHash);
             auditLogService.logFailure(AuditLog.AuditEventType.REGISTRATION,
-                    email, "Duplicate registration attempt", request);
+                    email, "Duplicate registration attempt", request
+            );
             return;
         }
 
