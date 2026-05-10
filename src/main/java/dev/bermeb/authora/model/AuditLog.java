@@ -25,6 +25,12 @@ public class AuditLog {
     @Column(name = "user_email")
     private String userEmail;
 
+    @Column(name = "actor_user_id")
+    private UUID actorUserId;
+
+    @Column(name = "actor_email", length = 255)
+    private String actorEmail;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "event_type", nullable = false, length = 60)
     private AuditEventType eventType;
