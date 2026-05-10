@@ -65,7 +65,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
 
         AuthoraProperties.RateLimit.PathLimit limit =
-                properties.getRateLimit().getPaths().get(matchedPath);
+                properties.getRateLimit().getPaths().getOrDefault(matchedPath, defaultLimit());
         if (limit == null) {
             // Legacy fallback so any newly added path still has some limit
             limit = new AuthoraProperties.RateLimit.PathLimit();
@@ -93,6 +93,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
                     "status", 429
             ));
         }
+    }
+
+    private AuthoraProperties.RateLimit.PathLimit defaultLimit() {
+        AuthoraProperties.RateLimit.PathLimit l = new AuthoraProperties.RateLimit.PathLimit();
+        l.setCapacity(properties.getRateLimit().getLoginAttemptsPerMinute());
+        l.setPeriodSeconds(60);
+        return l;
     }
 
     private Bucket resolveBucket(String key, AuthoraProperties.RateLimit.PathLimit limit) {
