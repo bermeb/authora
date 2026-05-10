@@ -201,6 +201,68 @@ class CustomOAuth2UserServiceTest {
     }
 
     @Test
+    @DisplayName("Linking to an unverified local account clears its password (takeover defense)")
+    void loadUser_unverifiedLocalAccount_passwordCleared() {
+        // Pre-existing local registration with attacker-controlled password, never verified
+        User unverifiedLocal = User.builder()
+                .id(UUID.randomUUID())
+                .email("victim@example.com")
+                .firstName("V")
+                .lastName("ictim")
+                .passwordHash("$2a$bcrypt$attacker-controlled-hash")
+                .emailVerified(false)
+                .roles(Set.of(Role.USER))
+                .build();
+
+        Map<String, Object> attrs = new HashMap<>();
+        attrs.put("sub", "google-victim");
+        attrs.put("email", "victim@example.com");
+        attrs.put("email_verified", true);
+
+        stubProviderUserInfo(attrs);
+        when(userRepository.findByOauthProviderAndOauthProviderId("google", "google-victim"))
+                .thenReturn(Optional.empty());
+        when(userRepository.findByEmail("victim@example.com")).thenReturn(Optional.of(unverifiedLocal));
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.loadUser(userRequest());
+
+        assertThat(unverifiedLocal.getPasswordHash()).isNull();
+        assertThat(unverifiedLocal.getOauthProvider()).isEqualTo("google");
+        assertThat(unverifiedLocal.isEmailVerified()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Linking to a verified local account preserves the existing password")
+    void loadUser_verifiedLocalAccount_passwordPreserved() {
+        User verifiedLocal = User.builder()
+                .id(UUID.randomUUID())
+                .email("legit@example.com")
+                .firstName("L")
+                .lastName("egit")
+                .passwordHash("$2a$bcrypt$legit-user-hash")
+                .emailVerified(true)
+                .roles(Set.of(Role.USER))
+                .build();
+
+        Map<String, Object> attrs = new HashMap<>();
+        attrs.put("sub", "google-legit");
+        attrs.put("email", "legit@example.com");
+        attrs.put("email_verified", true);
+
+        stubProviderUserInfo(attrs);
+        when(userRepository.findByOauthProviderAndOauthProviderId("google", "google-legit"))
+                .thenReturn(Optional.empty());
+        when(userRepository.findByEmail("legit@example.com")).thenReturn(Optional.of(verifiedLocal));
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.loadUser(userRequest());
+
+        assertThat(verifiedLocal.getPasswordHash()).isEqualTo("$2a$bcrypt$legit-user-hash");
+        assertThat(verifiedLocal.getOauthProvider()).isEqualTo("google");
+    }
+
+    @Test
     @DisplayName("Throws OAuth2AuthenticationException when email is null")
     void loadUser_nullEmail_throwsException() {
         Map<String, Object> attrs = new HashMap<>();
