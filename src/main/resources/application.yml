@@ -56,7 +56,7 @@ authora:
     max-failed-attempts: ${RATE_LIMIT_MAX_FAILURES:5}
     lock-duration-minutes: ${LOCK_DURATION_MINUTES:15}
   password-policy:
-    min-length: ${PW_MIN_LENGTH:10}
+    min-length: ${PW_MIN_LENGTH:12}
     require-uppercase: ${PW_REQUIRE_UPPER:true}
     require-lowercase: ${PW_REQUIRE_LOWER:true}
     require-numbers: ${PW_REQUIRE_DIGIT:true}
