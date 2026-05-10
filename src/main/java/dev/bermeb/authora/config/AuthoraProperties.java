@@ -107,5 +107,14 @@ public class AuthoraProperties {
         private List<String> allowedMethods = List.of("GET", "POST", "PUT", "DELETE", "OPTIONS");
         private boolean allowedCredentials = true;
         private long maxAge = 3600;
+
+        public boolean isAllowedOriginsSecure() {
+            if (allowedOrigins == null) return true;
+            return allowedOrigins.stream().allMatch(o ->
+                    o.startsWith("https://")
+                    || o.startsWith("http://localhost")
+                    || o.startsWith("http://127.0.0.1")
+            );
+        }
     }
 }
