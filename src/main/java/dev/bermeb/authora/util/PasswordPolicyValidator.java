@@ -42,8 +42,7 @@ public class PasswordPolicyValidator {
        }
 
        if (policy.isRequireSpecialCharacters() &&
-               // TODO: Replace with property of allowed characters
-               password.chars().noneMatch(c -> "!@#$%^&*()_+-=[]{}|;':\",./<>?".indexOf(c) >= 0)) {
+               password.chars().noneMatch(c -> policy.getAllowedSpecialCharacters().indexOf(c) >= 0)) {
            violations.add("one special character");
        }
 

@@ -84,6 +84,8 @@ public class AuthoraProperties {
         private int resetTokenExpiryMinutes = 30;
         @NotBlank
         private String pepper;
+        @NotBlank
+        private String allowedSpecialCharacters = "!@#$%^&*()_+-=[]{}|;':\",./<>?";
     }
 
     @Data

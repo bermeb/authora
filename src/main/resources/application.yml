@@ -66,6 +66,7 @@ authora:
     require-lowercase: ${PW_REQUIRE_LOWER:true}
     require-numbers: ${PW_REQUIRE_DIGIT:true}
     require-special-characters: ${PW_REQUIRE_SPECIAL:true}
+    allowed-special-characters: "${PW_ALLOWED_SPECIAL:!@#$%^&*()_+-=[]{}|;':\",./<>?}"
     reset-token-expiry-minutes: ${PW_RESET_EXPIRY_MINUTES:30}
     pepper: ${PW_PEPPER}
   email:
