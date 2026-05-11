@@ -140,15 +140,16 @@ public class AuthService {
 
     @Transactional(noRollbackFor = AuthException.class)
     public Map<String, Object> refresh(String rawRefreshToken, HttpServletRequest request) {
-        User user = refreshTokenService.getUserFromToken(rawRefreshToken, request);
-
-        checkAccountStatus(user);
-
+        User user;
         String newRefreshToken;
+
         if (properties.getRefreshToken().isRotateOnUse()) {
+            user = refreshTokenService.getUserFromToken(rawRefreshToken, request);
+            checkAccountStatus(user);
             newRefreshToken = refreshTokenService.rotateRefreshToken(rawRefreshToken, request);
         } else {
-            refreshTokenService.validateActive(rawRefreshToken, request);
+            user = refreshTokenService.getActiveUserFromToken(rawRefreshToken, request);
+            checkAccountStatus(user);
             newRefreshToken = rawRefreshToken;
         }
 

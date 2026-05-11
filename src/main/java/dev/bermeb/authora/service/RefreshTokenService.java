@@ -99,7 +99,7 @@ public class RefreshTokenService {
     }
 
     @Transactional(readOnly = true)
-    public void validateActive(String rawToken, HttpServletRequest request) {
+    public User getActiveUserFromToken(String rawToken, HttpServletRequest request) {
         RefreshToken rt = refreshTokenRepository.findByToken(hash(rawToken))
                 .orElseThrow(() -> {
                     auditLogService.logFailure(AuditLog.AuditEventType.INVALID_TOKEN,
@@ -113,6 +113,7 @@ public class RefreshTokenService {
             );
             throw new AuthException("Refresh token expired or revoked");
         }
+        return rt.getUser();
     }
 
     @Transactional

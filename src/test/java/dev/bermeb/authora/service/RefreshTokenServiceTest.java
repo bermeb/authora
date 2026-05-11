@@ -2,6 +2,7 @@ package dev.bermeb.authora.service;
 
 import dev.bermeb.authora.config.AuthoraProperties;
 import dev.bermeb.authora.exception.AuthException;
+import dev.bermeb.authora.model.AuditLog;
 import dev.bermeb.authora.model.RefreshToken;
 import dev.bermeb.authora.model.User;
 import dev.bermeb.authora.repository.RefreshTokenRepository;
@@ -277,12 +278,12 @@ class RefreshTokenServiceTest {
     }
 
     @Nested
-    @DisplayName("validateActive")
-    class ValidateActive {
+    @DisplayName("getActiveUserFromToken")
+    class GetActiveUserFromToken {
 
         @Test
-        @DisplayName("passes for active token")
-        void validate_active() {
+        @DisplayName("return user for active token")
+        void getActive_active() {
             String raw = "activeToken";
             RefreshToken active = RefreshToken.builder()
                     .token(TokenHashUtil.hash(raw))
@@ -293,12 +294,15 @@ class RefreshTokenServiceTest {
                     .build();
             when(refreshTokenRepository.findByToken(anyString())).thenReturn(Optional.of(active));
 
-            refreshTokenService.validateActive(raw, request);
+            User result = refreshTokenService.getActiveUserFromToken(raw, request);
+
+            assertThat(result).isEqualTo(testUser);
+            verifyNoInteractions(auditLogService);
         }
 
         @Test
-        @DisplayName("throws for expired token")
-        void validate_expired() {
+        @DisplayName("throws and audits for expired token")
+        void getActive_expired() {
             String raw = "expiredToken";
             RefreshToken expired = RefreshToken.builder()
                     .token(TokenHashUtil.hash(raw))
@@ -309,14 +313,21 @@ class RefreshTokenServiceTest {
                     .build();
             when(refreshTokenRepository.findByToken(anyString())).thenReturn(Optional.of(expired));
 
-            assertThatThrownBy(() -> refreshTokenService.validateActive(raw, request))
+            assertThatThrownBy(() -> refreshTokenService.getActiveUserFromToken(raw, request))
                     .isInstanceOf(AuthException.class)
                     .hasMessageContaining("expired or revoked");
+
+            verify(auditLogService).logFailure(
+                    eq(AuditLog.AuditEventType.INVALID_TOKEN),
+                    eq(testUser.getEmail()),
+                    anyString(),
+                    eq(request)
+            );
         }
 
         @Test
-        @DisplayName("throws for revoked token")
-        void validate_revoked() {
+        @DisplayName("throws and audits for revoked token")
+        void getActive_revoked() {
             String raw = "revokedToken";
             RefreshToken revoked = RefreshToken.builder()
                     .token(TokenHashUtil.hash(raw))
@@ -327,9 +338,33 @@ class RefreshTokenServiceTest {
                     .build();
             when(refreshTokenRepository.findByToken(anyString())).thenReturn(Optional.of(revoked));
 
-            assertThatThrownBy(() -> refreshTokenService.validateActive(raw, request))
+            assertThatThrownBy(() -> refreshTokenService.getActiveUserFromToken(raw, request))
                     .isInstanceOf(AuthException.class)
                     .hasMessageContaining("expired or revoked");
+
+            verify(auditLogService).logFailure(
+                    eq(AuditLog.AuditEventType.INVALID_TOKEN),
+                    eq(testUser.getEmail()),
+                    anyString(),
+                    eq(request)
+            );
+        }
+
+        @Test
+        @DisplayName("throws and audits when no record exists for the token")
+        void getActive_unknownToken() {
+            when(refreshTokenRepository.findByToken(anyString())).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> refreshTokenService.getActiveUserFromToken("nope", request))
+                    .isInstanceOf(AuthException.class)
+                    .hasMessageContaining("Invalid refresh token");
+
+            verify(auditLogService).logFailure(
+                    eq(AuditLog.AuditEventType.INVALID_TOKEN),
+                    nullable(String.class),
+                    anyString(),
+                    eq(request)
+            );
         }
     }
 

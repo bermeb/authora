@@ -277,7 +277,7 @@ class AuthServiceTest {
         @DisplayName("with rotateOnUse=false reuses the same refresh token")
         void refresh_withoutRotation() {
             properties.getRefreshToken().setRotateOnUse(false);
-            when(refreshTokenService.getUserFromToken("rawToken", request)).thenReturn(testUser);
+            when(refreshTokenService.getActiveUserFromToken("rawToken", request)).thenReturn(testUser);
             when(jwtService.generateAccessToken(any())).thenReturn("newAccessToken");
             when(jwtService.getAccessTokenExpirationSeconds()).thenReturn(900L);
 
@@ -285,6 +285,7 @@ class AuthServiceTest {
 
             assertThat(result.get("refreshToken")).isEqualTo("rawToken");
             verify(refreshTokenService, never()).rotateRefreshToken(any(), any());
+            verify(refreshTokenService, never()).getUserFromToken(any(), any());
         }
 
         @Test
