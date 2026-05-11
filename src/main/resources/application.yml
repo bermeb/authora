@@ -52,7 +52,6 @@ authora:
     rotate-on-use: ${RT_ROTATE:true}
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:true}
-    login-attempts-per-minute: ${RATE_LIMIT_RPM:10}
     max-failed-attempts: ${RATE_LIMIT_MAX_FAILURES:5}
     lock-duration-minutes: ${LOCK_DURATION_MINUTES:15}
     paths:

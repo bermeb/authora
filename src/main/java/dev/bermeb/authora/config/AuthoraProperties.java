@@ -55,8 +55,6 @@ public class AuthoraProperties {
     public static class RateLimit {
         private boolean enabled = true;
         @Min(1)
-        private int loginAttemptsPerMinute = 10;
-        @Min(1)
         private int maxFailedAttempts = 5;
         @Min(1)
         private int lockDurationMinutes = 15;
