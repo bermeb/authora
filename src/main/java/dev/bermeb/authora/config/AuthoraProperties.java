@@ -136,9 +136,8 @@ public class AuthoraProperties {
                 String scheme = u.getScheme();
                 String host = u.getHost();
                 if (scheme == null || host == null) return false;
-                // For CORS allowed-origins, reject path/query/fragment
-                // For redirect URIs we still accept a path - so callers that need
-                // strict origin-only validation must check separately
+                // Scheme/host check only - shared by CORS origins (Spring rejects paths
+                // at runtime anyway) and redirect URIs (which need a path).
                 return "https".equals(scheme)
                         || ("http".equals(scheme) && ("localhost".equals(host) || "127.0.0.1".equals(host)));
             } catch (IllegalArgumentException e) {

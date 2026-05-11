@@ -33,7 +33,7 @@ public class AuthController {
 
         SuccessResponse response = new SuccessResponse();
         response.setSuccess(true);
-        response.setMessage("If registration is required for this address, a verification email has been sent.");
+        response.setMessage("If this email is eligible for registration, a verification email has been sent.");
 
         return ResponseEntity.accepted().body(response);
     }

@@ -13,7 +13,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class UserDetailsServiceImpl implements UserDetailsService {
+public class UserDetailsServiceImpl implements UserDetailsService, UserPrincipalLookup {
 
     private final UserRepository userRepository;
 
@@ -21,12 +21,9 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     @NullMarked
     @Transactional
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        return userRepository
-                .findByEmail(email.toLowerCase())
+        return userRepository.findByEmail(email.toLowerCase())
                 .map(UserPrincipal::of)
-                .orElseThrow(() ->
-                        new UsernameNotFoundException("User not found: " + email)
-                );
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
     }
 
     @Transactional(readOnly = true)

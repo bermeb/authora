@@ -4,9 +4,11 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import dev.bermeb.authora.model.AuditLog;
 import dev.bermeb.authora.security.UserDetailsServiceImpl;
+import dev.bermeb.authora.security.UserPrincipalLookup;
 import dev.bermeb.authora.service.AuditLogService;
 import dev.bermeb.authora.service.JwtService;
 import io.jsonwebtoken.JwtException;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,6 +16,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -33,7 +36,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final AuditLogService auditLogService;
-    private final UserDetailsServiceImpl userDetailsService;
+    private final UserPrincipalLookup userPrincipalLookup;
 
     private static final int MAX_AUDITS_PER_IP_PER_HOUR = 10;
 
@@ -43,6 +46,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     .maximumSize(100_000)
                     .build();
 
+    @Value("${server.forward-headers-strategy:none}")
+    private String forwardHeadersStrategy;
+
+    @PostConstruct
+    void verifyForwardHeadersStrategy() {
+        if (!"native".equalsIgnoreCase(forwardHeadersStrategy)
+                && !"framework".equalsIgnoreCase(forwardHeadersStrategy)) {
+            log.warn("server.forward-headers-strategy={} - JwtAuthenticationFilter's per-IP audit " +
+                            "quota will use the proxy IP for ALL requests behind a reverse proxy, " +
+                            "letting a single attacker IP exhaust everyone's quota. " +
+                            "Set forward-headers-strategy=native (or framework) when running behind a trusted proxy.",
+                    forwardHeadersStrategy);
+        }
+    }
+
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                     @NonNull HttpServletResponse response,
@@ -50,7 +68,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         final String authHeader = request.getHeader("Authorization");
 
-        if(authHeader == null || !authHeader.startsWith("Bearer ")) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             chain.doFilter(request, response);
             return;
         }
@@ -63,7 +81,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             claimsExtracted = true;
 
             if (userId != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                UserDetails userDetails = userDetailsService.loadUserById(UUID.fromString(userId));
+                UserDetails userDetails = userPrincipalLookup.loadUserById(UUID.fromString(userId));
 
                 if (jwtService.isTokenValid(jwt, userDetails)) {
                     var authToken = new UsernamePasswordAuthenticationToken(
