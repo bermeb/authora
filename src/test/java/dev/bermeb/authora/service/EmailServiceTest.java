@@ -61,6 +61,11 @@ class EmailServiceTest {
         AuthoraProperties.PasswordPolicy policy = new AuthoraProperties.PasswordPolicy();
         policy.setResetTokenExpiryMinutes(30);
         when(properties.getPasswordPolicy()).thenReturn(policy);
+
+        AuthoraProperties.Features features = new AuthoraProperties.Features();
+        features.setEmailVerifyRedirectUri("http://localhost:3000/verify-email");
+        features.setPasswordResetRedirectUri("http://localhost:3000/reset-password");
+        when(properties.getFeatures()).thenReturn(features);
     }
 
     @Test

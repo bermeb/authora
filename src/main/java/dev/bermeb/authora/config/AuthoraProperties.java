@@ -1,24 +1,36 @@
 package dev.bermeb.authora.config;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
+import java.net.URI;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Validated
 @ConfigurationProperties(prefix = "authora")
 public class AuthoraProperties {
 
+    @Valid
     private Jwt jwt = new Jwt();
+    @Valid
     private RefreshToken refreshToken = new RefreshToken();
+    @Valid
     private RateLimit rateLimit = new RateLimit();
+    @Valid
     private PasswordPolicy passwordPolicy = new PasswordPolicy();
+    @Valid
     private Email email = new Email();
+    @Valid
     private Features features = new Features();
+    @Valid
     private Cors cors = new Cors();
 
     @Data
@@ -43,11 +55,21 @@ public class AuthoraProperties {
     public static class RateLimit {
         private boolean enabled = true;
         @Min(1)
-        private int loginAttemptsPerMinute = 10;
-        @Min(1)
         private int maxFailedAttempts = 5;
         @Min(1)
         private int lockDurationMinutes = 15;
+
+        @Valid
+        private Map<String, PathLimit> paths = Map.of();
+
+        @Data
+        public static class PathLimit {
+            @Min(1)
+            private int capacity;
+            @Min(1)
+            @Max(86_400) // 1 day
+            private long periodSeconds;
+        }
     }
 
     @Data
@@ -62,6 +84,8 @@ public class AuthoraProperties {
         private int resetTokenExpiryMinutes = 30;
         @NotBlank
         private String pepper;
+        @NotBlank
+        private String allowedSpecialCharacters = "!@#$%^&*()_+-=[]{}|;':\",./<>?";
     }
 
     @Data
@@ -80,6 +104,17 @@ public class AuthoraProperties {
         private boolean auditLogEnabled = true;
         private boolean twoFactorEnabled = false;
         private String oauth2RedirectUri = "http://localhost:3000/oauth2/callback";
+        private String emailVerifyRedirectUri = "http://localhost:3000/verify-email";
+        private String passwordResetRedirectUri = "http://localhost:3000/reset-password";
+
+        @AssertTrue(
+                message = "OAuth2/email/reset redirect URIs must use https:// (http://localhost or http://127.0.0.1 allowed for dev)"
+        )
+        public boolean isRedirectUrisSecure() {
+            return Cors.isSecureOrigin(oauth2RedirectUri)
+                    && Cors.isSecureOrigin(emailVerifyRedirectUri)
+                    && Cors.isSecureOrigin(passwordResetRedirectUri);
+        }
     }
 
     @Data
@@ -88,5 +123,28 @@ public class AuthoraProperties {
         private List<String> allowedMethods = List.of("GET", "POST", "PUT", "DELETE", "OPTIONS");
         private boolean allowedCredentials = true;
         private long maxAge = 3600;
+
+        @AssertTrue(
+                message = "CORS allowed origins must use https:// (http://localhost or http://127.0.0.1 allowed for dev)"
+        )
+        public boolean isAllowedOriginsSecure() {
+            if (allowedOrigins == null) return true;
+            return allowedOrigins.stream().allMatch(Cors::isSecureOrigin);
+        }
+
+        static boolean isSecureOrigin(String origin) {
+            try {
+                URI u = URI.create(origin);
+                String scheme = u.getScheme();
+                String host = u.getHost();
+                if (scheme == null || host == null) return false;
+                // Scheme/host check only - shared by CORS origins (Spring rejects paths
+                // at runtime anyway) and redirect URIs (which need a path).
+                return "https".equals(scheme)
+                        || ("http".equals(scheme) && ("localhost".equals(host) || "127.0.0.1".equals(host)));
+            } catch (IllegalArgumentException e) {
+                return false;
+            }
+        }
     }
 }

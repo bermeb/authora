@@ -1,8 +1,10 @@
 package dev.bermeb.authora.security;
 
+import dev.bermeb.authora.config.AuthoraProperties;
 import dev.bermeb.authora.model.Role;
 import dev.bermeb.authora.model.User;
 import dev.bermeb.authora.repository.UserRepository;
+import dev.bermeb.authora.service.EmailVerificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,25 +32,31 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class CustomOAuth2UserServiceTest {
 
     @Mock
     UserRepository userRepository;
-
     @Mock
     RestOperations restOperations;
+    @Mock
+    EmailVerificationService emailVerificationService;
+    @Mock
+    AuthoraProperties properties;
+    @Mock
+    AuthoraProperties.Features features;
 
     CustomOAuth2UserService service;
 
     @BeforeEach
     void setUp() {
-        service = new CustomOAuth2UserService(userRepository);
-        // Inject mock RestOperations to avoid real HTTP calls to OAuth provider
+        // Default: verification required. Individual tests can override via Mockito-lenient()
+        Mockito.lenient().when(properties.getFeatures()).thenReturn(features);
+        Mockito.lenient().when(features.isEmailVerificationRequired()).thenReturn(true);
+
+        service = new CustomOAuth2UserService(userRepository, emailVerificationService, properties);
         service.setRestOperations(restOperations);
     }
 
@@ -90,7 +98,7 @@ class CustomOAuth2UserServiceTest {
     }
 
     @Test
-    @DisplayName("New user is created and saved when no existing user found")
+    @DisplayName("New user is created when email_verified=true; no verification email sent")
     void loadUser_newUser_createdAndSaved() {
         Map<String, Object> attrs = new HashMap<>();
         attrs.put("sub", "google-123");
@@ -108,12 +116,12 @@ class CustomOAuth2UserServiceTest {
 
         OAuth2User result = service.loadUser(userRequest());
 
-        assertThat(result).isInstanceOf(OAuth2UserPrincipal.class);
         OAuth2UserPrincipal principal = (OAuth2UserPrincipal) result;
         assertThat(principal.getUser().getEmail()).isEqualTo("newuser@example.com");
         assertThat(principal.getUser().getRoles()).contains(Role.USER);
         assertThat(principal.getUser().isEmailVerified()).isTrue();
         verify(userRepository).save(any(User.class));
+        verifyNoInteractions(emailVerificationService);
     }
 
     @Test
@@ -144,45 +152,39 @@ class CustomOAuth2UserServiceTest {
 
         service.loadUser(userRequest());
 
-        // Should NOT look up by email since provider match was found
         verify(userRepository, never()).findByEmail(any());
         assertThat(existing.getProfilePictureUrl()).isEqualTo("https://example.com/newpic.jpg");
         assertThat(existing.isEmailVerified()).isTrue();
+        verifyNoInteractions(emailVerificationService);
     }
 
     @Test
-    @DisplayName("User found by email when email_verified is null (e.g. GitHub) and linked")
-    void loadUser_emailVerifiedNull_lookupByEmail() {
-        User existingByEmail = User.builder()
-                .id(UUID.randomUUID())
-                .email("shared@example.com")
-                .firstName("Shared")
-                .lastName("User")
-                .roles(Set.of(Role.USER))
-                .build();
-
+    @DisplayName("email_verified null (e.g. GitHub) creates unverified user and sends verification email")
+    void loadUser_emailVerifiedNull_createsUnverifiedAndIssuesVerification() {
         Map<String, Object> attrs = new HashMap<>();
         attrs.put("sub", "google-789");
         attrs.put("email", "shared@example.com");
-        // email_verified intentionally omitted (null)
 
         stubProviderUserInfo(attrs);
         when(userRepository.findByOauthProviderAndOauthProviderId("google", "google-789"))
                 .thenReturn(Optional.empty());
-        when(userRepository.findByEmail("shared@example.com")).thenReturn(Optional.of(existingByEmail));
-        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> {
+                    User u = inv.getArgument(0);
+                    if (u.getId() == null) u.setId(UUID.randomUUID());
+                    return u;
+        });
 
         OAuth2User result = service.loadUser(userRequest());
 
+        verify(userRepository, never()).findByEmail(any());
         OAuth2UserPrincipal principal = (OAuth2UserPrincipal) result;
-        assertThat(principal.getUser().getId()).isEqualTo(existingByEmail.getId());
-        assertThat(existingByEmail.getOauthProvider()).isEqualTo("google");
-        assertThat(existingByEmail.getOauthProviderId()).isEqualTo("google-789");
+        assertThat(principal.getUser().isEmailVerified()).isFalse();
+        verify(emailVerificationService).issueFor(any(User.class));
     }
 
     @Test
-    @DisplayName("email_verified=false skips email lookup and creates new user")
-    void loadUser_emailVerifiedFalse_skipEmailLookup_createNewUser() {
+    @DisplayName("email_verified false creates unverified user and sends verification email")
+    void loadUser_emailVerifiedFalse_createsUnverifiedAndIssuesVerification() {
         Map<String, Object> attrs = new HashMap<>();
         attrs.put("sub", "google-unverified");
         attrs.put("email", "unverified@example.com");
@@ -191,13 +193,98 @@ class CustomOAuth2UserServiceTest {
         stubProviderUserInfo(attrs);
         when(userRepository.findByOauthProviderAndOauthProviderId("google", "google-unverified"))
                 .thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> {
+                    User u = inv.getArgument(0);
+                    if (u.getId() == null) u.setId(UUID.randomUUID());
+                    return u;
+        });
+
+        service.loadUser(userRequest());
+
+        verify(userRepository, never()).findByEmail(any());
+        verify(userRepository).save(any(User.class));
+        verify(emailVerificationService).issueFor(any(User.class));
+    }
+
+    @Test
+    @DisplayName("Untrusted email is NOT sent verification when feature flag is off")
+    void loadUser_untrusted_verificationDisabled_noEmailSent() {
+        when(features.isEmailVerificationRequired()).thenReturn(false);
+
+        Map<String, Object> attrs = new HashMap<>();
+        attrs.put("sub", "google-noverify");
+        attrs.put("email", "noverify@example.com");
+
+        stubProviderUserInfo(attrs);
+        when(userRepository.findByOauthProviderAndOauthProviderId("google", "google-noverify"))
+                .thenReturn(Optional.empty());
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
         service.loadUser(userRequest());
 
-        // Must NOT attempt email lookup when email_verified is explicitly false
-        verify(userRepository, never()).findByEmail(any());
-        verify(userRepository).save(any(User.class));
+        verifyNoInteractions(emailVerificationService);
+    }
+
+    @Test
+    @DisplayName("Linking to an unverified local account clears its password (takeover defense)")
+    void loadUser_unverifiedLocalAccount_passwordCleared() {
+        // Pre-existing local registration with attacker-controlled password, never verified
+        User unverifiedLocal = User.builder()
+                .id(UUID.randomUUID())
+                .email("victim@example.com")
+                .firstName("V")
+                .lastName("ictim")
+                .passwordHash("$2a$bcrypt$attacker-controlled-hash")
+                .emailVerified(false)
+                .roles(Set.of(Role.USER))
+                .build();
+
+        Map<String, Object> attrs = new HashMap<>();
+        attrs.put("sub", "google-victim");
+        attrs.put("email", "victim@example.com");
+        attrs.put("email_verified", true);
+
+        stubProviderUserInfo(attrs);
+        when(userRepository.findByOauthProviderAndOauthProviderId("google", "google-victim"))
+                .thenReturn(Optional.empty());
+        when(userRepository.findByEmail("victim@example.com")).thenReturn(Optional.of(unverifiedLocal));
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.loadUser(userRequest());
+
+        assertThat(unverifiedLocal.getPasswordHash()).isNull();
+        assertThat(unverifiedLocal.getOauthProvider()).isEqualTo("google");
+        assertThat(unverifiedLocal.isEmailVerified()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Linking to a verified local account preserves the existing password")
+    void loadUser_verifiedLocalAccount_passwordPreserved() {
+        User verifiedLocal = User.builder()
+                .id(UUID.randomUUID())
+                .email("legit@example.com")
+                .firstName("L")
+                .lastName("egit")
+                .passwordHash("$2a$bcrypt$legit-user-hash")
+                .emailVerified(true)
+                .roles(Set.of(Role.USER))
+                .build();
+
+        Map<String, Object> attrs = new HashMap<>();
+        attrs.put("sub", "google-legit");
+        attrs.put("email", "legit@example.com");
+        attrs.put("email_verified", true);
+
+        stubProviderUserInfo(attrs);
+        when(userRepository.findByOauthProviderAndOauthProviderId("google", "google-legit"))
+                .thenReturn(Optional.empty());
+        when(userRepository.findByEmail("legit@example.com")).thenReturn(Optional.of(verifiedLocal));
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.loadUser(userRequest());
+
+        assertThat(verifiedLocal.getPasswordHash()).isEqualTo("$2a$bcrypt$legit-user-hash");
+        assertThat(verifiedLocal.getOauthProvider()).isEqualTo("google");
     }
 
     @Test

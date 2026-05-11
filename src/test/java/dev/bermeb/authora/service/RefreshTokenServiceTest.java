@@ -2,6 +2,7 @@ package dev.bermeb.authora.service;
 
 import dev.bermeb.authora.config.AuthoraProperties;
 import dev.bermeb.authora.exception.AuthException;
+import dev.bermeb.authora.model.AuditLog;
 import dev.bermeb.authora.model.RefreshToken;
 import dev.bermeb.authora.model.User;
 import dev.bermeb.authora.repository.RefreshTokenRepository;
@@ -139,7 +140,9 @@ class RefreshTokenServiceTest {
         @DisplayName("revokes old token and returns new raw token")
         void rotate_success() {
             String rawOld = "oldRawToken";
+            UUID existingId = UUID.randomUUID();
             RefreshToken existing = RefreshToken.builder()
+                    .id(existingId)
                     .token(TokenHashUtil.hash(rawOld))
                     .user(testUser)
                     .expiresAt(Instant.now().plusSeconds(3600))
@@ -147,6 +150,8 @@ class RefreshTokenServiceTest {
                     .revoked(false)
                     .build();
             when(refreshTokenRepository.findByToken(anyString())).thenReturn(Optional.of(existing));
+            when(refreshTokenRepository.markRevoked(eq(existingId), any(Instant.class), eq("ROTATED")))
+                    .thenReturn(1);
             when(refreshTokenRepository.findByUserAndRevokedFalseOrderByCreatedAtAsc(any()))
                     .thenReturn(new ArrayList<>());
             when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -154,8 +159,7 @@ class RefreshTokenServiceTest {
             String newToken = refreshTokenService.rotateRefreshToken(rawOld, request);
 
             assertThat(newToken).isNotBlank().isNotEqualTo(rawOld);
-            assertThat(existing.isRevoked()).isTrue();
-            assertThat(existing.getRevokedReason()).isEqualTo("ROTATED");
+            verify(refreshTokenRepository).markRevoked(eq(existingId), any(Instant.class), eq("ROTATED"));
         }
 
         @Test
@@ -226,14 +230,14 @@ class RefreshTokenServiceTest {
                     .build();
             when(refreshTokenRepository.findByToken(anyString())).thenReturn(Optional.of(active));
 
-            User result = refreshTokenService.getUserFromToken(raw);
+            User result = refreshTokenService.getUserFromToken(raw, request);
 
             assertThat(result).isEqualTo(testUser);
         }
 
         @Test
-        @DisplayName("throws for expired token")
-        void getUser_expired() {
+        @DisplayName("returns user for expired token (activity check is caller's job)")
+        void getUser_expiredStillReturnsUser() {
             String raw = "expiredToken";
             RefreshToken expired = RefreshToken.builder()
                     .token(TokenHashUtil.hash(raw))
@@ -244,14 +248,12 @@ class RefreshTokenServiceTest {
                     .build();
             when(refreshTokenRepository.findByToken(anyString())).thenReturn(Optional.of(expired));
 
-            assertThatThrownBy(() -> refreshTokenService.getUserFromToken(raw))
-                    .isInstanceOf(AuthException.class)
-                    .hasMessageContaining("Invalid or expired");
+            assertThat(refreshTokenService.getUserFromToken(raw, request)).isEqualTo(testUser);
         }
 
         @Test
-        @DisplayName("throws for revoked token")
-        void getUser_revoked() {
+        @DisplayName("returns user for revoked token so rotateRefreshToken can run reuse detection")
+        void getUser_revokedStillReturnsUser() {
             String raw = "revokedToken";
             RefreshToken revoked = RefreshToken.builder()
                     .token(TokenHashUtil.hash(raw))
@@ -262,8 +264,107 @@ class RefreshTokenServiceTest {
                     .build();
             when(refreshTokenRepository.findByToken(anyString())).thenReturn(Optional.of(revoked));
 
-            assertThatThrownBy(() -> refreshTokenService.getUserFromToken(raw))
+            assertThat(refreshTokenService.getUserFromToken(raw, request)).isEqualTo(testUser);
+        }
+
+        @Test
+        @DisplayName("throws when no record exists for the token")
+        void getUser_unknownToken() {
+            when(refreshTokenRepository.findByToken(anyString())).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> refreshTokenService.getUserFromToken("nope", request))
                     .isInstanceOf(AuthException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("getActiveUserFromToken")
+    class GetActiveUserFromToken {
+
+        @Test
+        @DisplayName("return user for active token")
+        void getActive_active() {
+            String raw = "activeToken";
+            RefreshToken active = RefreshToken.builder()
+                    .token(TokenHashUtil.hash(raw))
+                    .user(testUser)
+                    .expiresAt(Instant.now().plusSeconds(3600))
+                    .createdAt(Instant.now())
+                    .revoked(false)
+                    .build();
+            when(refreshTokenRepository.findByToken(anyString())).thenReturn(Optional.of(active));
+
+            User result = refreshTokenService.getActiveUserFromToken(raw, request);
+
+            assertThat(result).isEqualTo(testUser);
+            verifyNoInteractions(auditLogService);
+        }
+
+        @Test
+        @DisplayName("throws and audits for expired token")
+        void getActive_expired() {
+            String raw = "expiredToken";
+            RefreshToken expired = RefreshToken.builder()
+                    .token(TokenHashUtil.hash(raw))
+                    .user(testUser)
+                    .expiresAt(Instant.now().minusSeconds(1))
+                    .createdAt(Instant.now().minusSeconds(100))
+                    .revoked(false)
+                    .build();
+            when(refreshTokenRepository.findByToken(anyString())).thenReturn(Optional.of(expired));
+
+            assertThatThrownBy(() -> refreshTokenService.getActiveUserFromToken(raw, request))
+                    .isInstanceOf(AuthException.class)
+                    .hasMessageContaining("expired or revoked");
+
+            verify(auditLogService).logFailure(
+                    eq(AuditLog.AuditEventType.INVALID_TOKEN),
+                    eq(testUser.getEmail()),
+                    anyString(),
+                    eq(request)
+            );
+        }
+
+        @Test
+        @DisplayName("throws and audits for revoked token")
+        void getActive_revoked() {
+            String raw = "revokedToken";
+            RefreshToken revoked = RefreshToken.builder()
+                    .token(TokenHashUtil.hash(raw))
+                    .user(testUser)
+                    .expiresAt(Instant.now().plusSeconds(3600))
+                    .createdAt(Instant.now())
+                    .revoked(true)
+                    .build();
+            when(refreshTokenRepository.findByToken(anyString())).thenReturn(Optional.of(revoked));
+
+            assertThatThrownBy(() -> refreshTokenService.getActiveUserFromToken(raw, request))
+                    .isInstanceOf(AuthException.class)
+                    .hasMessageContaining("expired or revoked");
+
+            verify(auditLogService).logFailure(
+                    eq(AuditLog.AuditEventType.INVALID_TOKEN),
+                    eq(testUser.getEmail()),
+                    anyString(),
+                    eq(request)
+            );
+        }
+
+        @Test
+        @DisplayName("throws and audits when no record exists for the token")
+        void getActive_unknownToken() {
+            when(refreshTokenRepository.findByToken(anyString())).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> refreshTokenService.getActiveUserFromToken("nope", request))
+                    .isInstanceOf(AuthException.class)
+                    .hasMessageContaining("Invalid refresh token");
+
+            verify(auditLogService).logFailure(
+                    eq(AuditLog.AuditEventType.INVALID_TOKEN),
+                    nullable(String.class),
+                    anyString(),
+                    eq(request)
+            );
         }
     }
 

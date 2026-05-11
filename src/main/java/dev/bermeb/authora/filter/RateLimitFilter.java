@@ -23,6 +23,7 @@ import tools.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -40,31 +41,33 @@ public class RateLimitFilter extends OncePerRequestFilter {
                     .maximumSize(100_000)
                     .build();
 
-    private static final String[] RATE_LIMITED_PATHS = {
-            "/api/v1/auth/login",
-            "/api/v1/auth/register",
-            "/api/v1/auth/password/forgot",
-            "/api/v1/auth/password/reset",
-            "/api/v1/auth/refresh"
-    };
-
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                     @NonNull HttpServletResponse response,
                                     @NonNull FilterChain chain) throws ServletException, IOException {
 
-        if (!properties.getRateLimit().isEnabled() || !isRateLimited(request)) {
+        if (!properties.getRateLimit().isEnabled()) {
             chain.doFilter(request, response);
             return;
         }
 
+        Map<String, AuthoraProperties.RateLimit.PathLimit> paths =
+                properties.getRateLimit().getPaths();
+
+        String matchedPath = matchedPath(request.getServletPath(), paths.keySet());
+        if (matchedPath == null) {
+            chain.doFilter(request, response);
+            return;
+        }
+
+        AuthoraProperties.RateLimit.PathLimit limit = paths.get(matchedPath);
         String ip = request.getRemoteAddr();
-        Bucket bucket = resolveBucket(ip);
+        Bucket bucket = resolveBucket(matchedPath + "|" + ip, limit);
 
         if (bucket.tryConsume(1)) {
             chain.doFilter(request, response);
         } else {
-            log.warn("Rate limit exceeded for IP: {}", ip);
+            log.warn("Rate limit exceeded for IP: {} path: {}", ip, matchedPath);
 
             auditLogService.logFailure(AuditLog.AuditEventType.RATE_LIMIT_EXCEEDED,
                     (String) null, "IP: " + ip + " path: " + request.getRequestURI(), request);
@@ -79,25 +82,24 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
     }
 
-    private Bucket resolveBucket(String ip) {
-        return localBuckets.get(ip, this::newBucket);
-    }
-
-    private Bucket newBucket(String ip) {
-        int requestsPerMinute = properties.getRateLimit().getLoginAttemptsPerMinute();
-        return Bucket.builder()
+    private Bucket resolveBucket(String key, AuthoraProperties.RateLimit.PathLimit limit) {
+        return localBuckets.get(key, k -> Bucket.builder()
                 .addLimit(Bandwidth.builder()
-                        .capacity(requestsPerMinute)
-                        .refillGreedy(requestsPerMinute, Duration.ofMinutes(1))
+                        .capacity(limit.getCapacity())
+                        .refillGreedy(limit.getCapacity(), Duration.ofSeconds(limit.getPeriodSeconds()))
                         .build())
-                .build();
+                .build()
+        );
     }
 
-    private boolean isRateLimited(HttpServletRequest request) {
-        String path = request.getServletPath();
-        for (String p : RATE_LIMITED_PATHS) {
-            if (path.startsWith(p)) return true;
+    private static String matchedPath(String requestPath, Set<String> prefixes) {
+        // Longest-prefix match
+        String best = null;
+        for (String prefix : prefixes) {
+            if (requestPath.startsWith(prefix) && (best == null || prefix.length() > best.length())) {
+                best = prefix;
+            }
         }
-        return false;
+        return best;
     }
 }

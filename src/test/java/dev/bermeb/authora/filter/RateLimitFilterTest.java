@@ -14,6 +14,9 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -32,15 +35,30 @@ class RateLimitFilterTest {
     RateLimitFilter filter;
 
     private AuthoraProperties.RateLimit rateLimit;
+    private Map<String, AuthoraProperties.RateLimit.PathLimit> paths;
 
     @BeforeEach
     void setUp() {
+        paths = new HashMap<>();
+        paths.put("/api/v1/auth/login", pathLimit(10, 60));
+
         rateLimit = new AuthoraProperties.RateLimit();
         rateLimit.setEnabled(true);
-        rateLimit.setLoginAttemptsPerMinute(10);
+        rateLimit.setPaths(paths);
         when(properties.getRateLimit()).thenReturn(rateLimit);
 
-        filter = new RateLimitFilter(properties, auditLogService, JsonMapper.builder().build());
+        filter = newFilter();
+    }
+
+    private RateLimitFilter newFilter() {
+        return new RateLimitFilter(properties, auditLogService, JsonMapper.builder().build());
+    }
+
+    private static AuthoraProperties.RateLimit.PathLimit pathLimit(int capacity, long periodSeconds) {
+        AuthoraProperties.RateLimit.PathLimit pathLimit = new AuthoraProperties.RateLimit.PathLimit();
+        pathLimit.setCapacity(capacity);
+        pathLimit.setPeriodSeconds(periodSeconds);
+        return pathLimit;
     }
 
     @Test
@@ -89,9 +107,8 @@ class RateLimitFilterTest {
     @Test
     @DisplayName("Rate-limited path with exhausted bucket → 429 and audit log")
     void rateLimitedPath_bucketExhausted_returns429() throws Exception {
-        // Set capacity to 1 so the second request exceeds the limit
-        rateLimit.setLoginAttemptsPerMinute(1);
-        filter = new RateLimitFilter(properties, auditLogService, JsonMapper.builder().build());
+        paths.put("/api/v1/auth/login", pathLimit(1, 60));
+        filter = newFilter();
 
         MockHttpServletRequest first = requestFor("/api/v1/auth/login");
         first.setRemoteAddr("10.0.0.2");
@@ -113,8 +130,8 @@ class RateLimitFilterTest {
     @Test
     @DisplayName("Different IPs get independent buckets")
     void differentIps_independentBuckets() throws Exception {
-        rateLimit.setLoginAttemptsPerMinute(1);
-        filter = new RateLimitFilter(properties, auditLogService, JsonMapper.builder().build());
+        paths.put("/api/v1/auth/login", pathLimit(1, 60));
+        filter = newFilter();
 
         // Exhaust IP A
         MockHttpServletRequest requestA = requestFor("/api/v1/auth/login");

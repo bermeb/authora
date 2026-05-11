@@ -48,10 +48,11 @@ class JwtServiceTest {
     }
 
     @Test
-    @DisplayName("generated token should contain correct subject")
+    @DisplayName("generated token should contain user id as subject and email as claim")
     void generateToken_hasCorrectSubject() {
         String token = jwtService.generateAccessToken(principal);
-        assertThat(jwtService.extractUsername(token)).isEqualTo("u@example.com");
+        assertThat(jwtService.extractUserId(token)).isEqualTo(principal.getUser().getId().toString());
+        assertThat(jwtService.extractEmail(token)).isEqualTo("u@example.com");
     }
 
     @Test

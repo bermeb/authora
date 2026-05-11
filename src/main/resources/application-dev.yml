@@ -1,0 +1,5 @@
+authora:
+  jwt:
+    secret: dev-jwt-secret-32-or-more-chars-required-for-hs256
+  password-policy:
+    pepper: dev-pepper-do-not-use-in-production-min32chars

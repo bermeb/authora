@@ -52,7 +52,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
 
         byte[] bytes = new byte[16];
         SECURE_RANDOM.nextBytes(bytes);
-        String code = Base64.getEncoder().withoutPadding().encodeToString(bytes);
+        String code = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
 
         // Store the tokens under the one-time code
         // The frontend must exchange this code within 2 minutes (cache TTL)
@@ -69,7 +69,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
 
         String redirectUrl = UriComponentsBuilder
                 .fromUriString(properties.getFeatures().getOauth2RedirectUri())
-                .queryParam("code", code)
+                .fragment("code=" + code)
                 .build().toString();
 
         getRedirectStrategy().sendRedirect(request, response, redirectUrl);

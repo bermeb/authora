@@ -1,8 +1,10 @@
 package dev.bermeb.authora.security;
 
+import dev.bermeb.authora.config.AuthoraProperties;
 import dev.bermeb.authora.model.Role;
 import dev.bermeb.authora.model.User;
 import dev.bermeb.authora.repository.UserRepository;
+import dev.bermeb.authora.service.EmailVerificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
@@ -20,16 +22,16 @@ import java.util.Set;
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private final UserRepository userRepository;
+    private final EmailVerificationService emailVerificationService;
+    private final AuthoraProperties properties;
 
     @Override
     @Transactional
     public OAuth2User loadUser(OAuth2UserRequest request) throws OAuth2AuthenticationException {
-        // Let the parent class fetch the user's profile from the provider's user-information endpoint
         OAuth2User oAuth2User = super.loadUser(request);
 
-        // Extract provider details
-        String provider = request.getClientRegistration().getRegistrationId(); // e.g. "google"
-        String providerId = oAuth2User.getName(); // the provider's unique user ID ("sub" claim)
+        String provider = request.getClientRegistration().getRegistrationId();
+        String providerId = oAuth2User.getName();
         String email = oAuth2User.getAttribute("email");
         String firstName = oAuth2User.getAttribute("given_name");
         String lastName = oAuth2User.getAttribute("family_name");
@@ -39,47 +41,56 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             throw new OAuth2AuthenticationException("Email not provided by OAuth2 provider");
         }
 
-        // Check if the OAuth2 provider actually verified this email address
+        // Only an explicit `true` from the provider is enough to skip our own verification
+        // Providers that don't send `email_verified` (e.g. GitHub via /userinfo) are treated
+        // the same as `false`: we still let the user in, but we send a verification email
+        // and refuse to link to any pre-existing local account with the same address
         Boolean providerEmailVerified = oAuth2User.getAttribute("email_verified");
+        boolean emailTrusted = Boolean.TRUE.equals(providerEmailVerified);
 
-        // Try to find an existing user
         User user = userRepository
                 .findByOauthProviderAndOauthProviderId(provider, providerId)
-                .orElseGet(() -> {
-                    // Only skip email-based lookup if the provider explicitly says the email
-                    // is NOT verified (false). A null value means the provider doesn't send
-                    // this field at all (e.g. GitHub) — treat as trusted and look up by email.
-                    if (!Boolean.FALSE.equals(providerEmailVerified)) {
-                        return userRepository.findByEmail(email.toLowerCase()).orElse(null);
-                    }
-                    return null;
-                });
+                .orElse(null);
 
-        // Register new user or refresh OAuth2 fields
-        if (user == null) {
+        if (user == null && emailTrusted) {
+            user = userRepository.findByEmail(email.toLowerCase()).orElse(null);
+        }
+
+        boolean isNewUser = (user == null);
+        if (isNewUser) {
             user = User.builder()
                     .email(email.toLowerCase())
                     .firstName(firstName != null ? firstName : "")
                     .lastName(lastName != null ? lastName : "")
-                    .emailVerified(Boolean.TRUE.equals(providerEmailVerified))
+                    .emailVerified(emailTrusted)
                     .oauthProvider(provider)
                     .oauthProviderId(providerId)
                     .profilePictureUrl(picture)
                     .roles(Set.of(Role.USER))
                     .build();
-            log.info("Registering new OAuth2 user: {} via {}", email, provider);
+            log.info("Registering new OAuth2 user via {}", provider);
+            log.debug("New OAuth2 user email: {}", email);
         } else {
+            if (user.isLocalUser() && !user.isEmailVerified()) {
+                log.warn("OAuth2 link adopting unverified local account for {} via {}; clearing password",
+                        email, provider);
+                user.setPasswordHash(null);
+            }
             user.setOauthProvider(provider);
             user.setOauthProviderId(providerId);
             if (picture != null) user.setProfilePictureUrl(picture);
-            if (Boolean.TRUE.equals(providerEmailVerified)) {
+            if (emailTrusted) {
                 user.setEmailVerified(true);
             }
         }
 
         user = userRepository.save(user);
 
-        // Return a principal that wraps our user entity plus the raw provider attributes
+        if (isNewUser && !emailTrusted && properties.getFeatures().isEmailVerificationRequired()) {
+            log.info("OAuth2 provider {} did not verify email - issuing our own verification", provider);
+            emailVerificationService.issueFor(user);
+        }
+
         return OAuth2UserPrincipal.of(user, oAuth2User.getAttributes());
     }
 }

@@ -43,7 +43,7 @@ spring:
 
 authora:
   jwt:
-    secret: ${JWT_SECRET:CHANGE_ME_IN_PRODUCTION_USE_32_OR_MORE_CHARS}
+    secret: ${JWT_SECRET}
     access-token-expiration-minutes: ${JWT_EXPIRY_MINUTES:15}
     issuer: ${JWT_ISSUER:auth-service}
   refresh-token:
@@ -52,17 +52,23 @@ authora:
     rotate-on-use: ${RT_ROTATE:true}
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:true}
-    login-attempts-per-minute: ${RATE_LIMIT_RPM:10}
     max-failed-attempts: ${RATE_LIMIT_MAX_FAILURES:5}
     lock-duration-minutes: ${LOCK_DURATION_MINUTES:15}
+    paths:
+      /api/v1/auth/register: { capacity: 3,  period-seconds: 3600 }
+      /api/v1/auth/password/forgot: { capacity: 3,  period-seconds: 3600 }
+      /api/v1/auth/password/reset: { capacity: 5,  period-seconds: 3600 }
+      /api/v1/auth/login: { capacity: 10, period-seconds: 60 }
+      /api/v1/auth/refresh: { capacity: 30, period-seconds: 60 }
   password-policy:
-    min-length: ${PW_MIN_LENGTH:10}
+    min-length: ${PW_MIN_LENGTH:12}
     require-uppercase: ${PW_REQUIRE_UPPER:true}
     require-lowercase: ${PW_REQUIRE_LOWER:true}
     require-numbers: ${PW_REQUIRE_DIGIT:true}
     require-special-characters: ${PW_REQUIRE_SPECIAL:true}
+    allowed-special-characters: "${PW_ALLOWED_SPECIAL:!@#$%^&*()_+-=[]{}|;':\",./<>?}"
     reset-token-expiry-minutes: ${PW_RESET_EXPIRY_MINUTES:30}
-    pepper: ${PW_PEPPER:dev-pepper-do-not-use-in-production-min32chars}
+    pepper: ${PW_PEPPER}
   email:
     from-address: ${EMAIL_FROM:noreply@example.com}
     from-name: ${EMAIL_FROM_NAME:Auth Service}
@@ -73,6 +79,8 @@ authora:
     email-verification-required: ${FEATURE_EMAIL_VERIFY:true}
     audit-log-enabled: ${FEATURE_AUDIT_LOG:true}
     oauth2-redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:3000/oauth2/callback}
+    email-verify-redirect-uri: ${EMAIL_VERIFY_REDIRECT_URI:http://localhost:3000/verify-email}
+    password-reset-redirect-uri: ${PASSWORD_RESET_REDIRECT_URI:http://localhost:3000/reset-password}
   cors:
     allowed-origins:
       - ${CORS_ORIGIN:http://localhost:3000}

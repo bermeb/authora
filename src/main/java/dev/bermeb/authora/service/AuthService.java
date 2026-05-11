@@ -11,6 +11,7 @@ import dev.bermeb.authora.repository.UserRepository;
 import dev.bermeb.authora.security.UserPrincipal;
 import dev.bermeb.authora.util.PasswordPolicyValidator;
 import dev.bermeb.authora.util.TokenHashUtil;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +20,6 @@ import org.springframework.cache.CacheManager;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.*;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +39,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final EmailVerificationService  emailVerificationService;
     private final AuthenticationManager authManager;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
@@ -49,12 +50,27 @@ public class AuthService {
     private final AuthoraProperties properties;
     private final CacheManager cacheManager;
 
+    // Used on login to eliminate timing differences on authentication for valid emails
+    private String dummyHash;
+
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
+    @PostConstruct
+    void initDummyHash() {
+        // Hash a random throwaway value at startup; cost mirrors a real bcrypt verify
+        // so duplicate-email and unknown-user paths take the same wall time as a real login
+        this.dummyHash = passwordEncoder.encode(SECURE_RANDOM.nextInt() + "__dummy__" + SECURE_RANDOM.nextInt());
+    }
+
     @Transactional
-    public User register(String email, String password, String firstName, String lastName, HttpServletRequest request) {
+    public void register(String email, String password, String firstName, String lastName, HttpServletRequest request) {
         if (userRepository.existsByEmail(email.toLowerCase())) {
-            throw new AuthException("Email already registered", HttpStatus.CONFLICT);
+            // Consume bcrypt time so duplicate-email cannot be detected via response timing
+            passwordEncoder.matches(password, dummyHash); // constant-time decoy
+            auditLogService.logFailure(AuditLog.AuditEventType.REGISTRATION,
+                    email, "Duplicate registration attempt", request
+            );
+            return;
         }
 
         // Validate password strength in case the frontend didn't
@@ -73,30 +89,19 @@ public class AuthService {
         userRepository.save(user);
         auditLogService.logSuccess(AuditLog.AuditEventType.REGISTRATION, user, request);
 
-        if (properties.getFeatures().isEmailVerificationRequired()) {
-            String rawToken = generateSecureToken();
-            passwordResetTokenRepository.deleteByUser(user);
-            PasswordResetToken verifyToken = PasswordResetToken.builder()
-                    .token(TokenHashUtil.hash(rawToken))
-                    .user(user)
-                    .tokenType(PasswordResetToken.TokenType.EMAIL_VERIFICATION)
-                    .expiresAt(Instant.now().plus(60, ChronoUnit.MINUTES))
-                    .createdAt(Instant.now())
-                    .build();
-            passwordResetTokenRepository.save(verifyToken);
-            emailService.sendEmailVerification(user, rawToken);
+        if(properties.getFeatures().isEmailVerificationRequired()) {
+            emailVerificationService.issueFor(user);
         }
-        return user;
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = AuthException.class)
     public Map<String, Object> login(String email, String password, HttpServletRequest request) {
-        User user = userRepository.findByEmail(email.toLowerCase())
-                .orElseThrow(() -> {
-                    // Log failure even for unknown emails; return generic message
-                    auditLogService.logFailure(AuditLog.AuditEventType.LOGIN_FAILURE, email, "User not found", request);
-                    return new AuthException("Invalid credentials");
-                });
+        User user = userRepository.findByEmail(email.toLowerCase()).orElse(null);
+        if (user == null) {
+            passwordEncoder.matches(password, dummyHash); // constant-time decoy
+            auditLogService.logFailure(AuditLog.AuditEventType.LOGIN_FAILURE, email, "User not found", request);
+            throw new AuthException("Invalid credentials");
+        }
 
         checkAccountStatus(user);
 
@@ -110,7 +115,9 @@ public class AuthService {
             userRepository.save(user);
 
 
-            String accessToken = jwtService.generateAccessToken((UserDetails) Objects.requireNonNull(auth.getPrincipal()));
+            String accessToken = jwtService.generateAccessToken(
+                    (UserPrincipal) Objects.requireNonNull(auth.getPrincipal())
+            );
             String refreshToken = refreshTokenService.createRefreshToken(user, request);
 
             auditLogService.logSuccess(AuditLog.AuditEventType.LOGIN_SUCCESS, user, request);
@@ -133,13 +140,18 @@ public class AuthService {
 
     @Transactional(noRollbackFor = AuthException.class)
     public Map<String, Object> refresh(String rawRefreshToken, HttpServletRequest request) {
-        User user = refreshTokenService.getUserFromToken(rawRefreshToken);
+        User user;
+        String newRefreshToken;
 
-        checkAccountStatus(user);
-
-        String newRefreshToken = properties.getRefreshToken().isRotateOnUse()
-                ? refreshTokenService.rotateRefreshToken(rawRefreshToken, request)
-                : rawRefreshToken;
+        if (properties.getRefreshToken().isRotateOnUse()) {
+            user = refreshTokenService.getUserFromToken(rawRefreshToken, request);
+            checkAccountStatus(user);
+            newRefreshToken = refreshTokenService.rotateRefreshToken(rawRefreshToken, request);
+        } else {
+            user = refreshTokenService.getActiveUserFromToken(rawRefreshToken, request);
+            checkAccountStatus(user);
+            newRefreshToken = rawRefreshToken;
+        }
 
         UserPrincipal principal = UserPrincipal.of(user);
         String accessToken = jwtService.generateAccessToken(principal);
@@ -189,7 +201,7 @@ public class AuthService {
 
             String rawToken = generateSecureToken();
             // Invalidate any existing reset tokens before creating a new one
-            passwordResetTokenRepository.deleteByUser(user);
+            passwordResetTokenRepository.deleteByUserAndTokenType(user, PasswordResetToken.TokenType.PASSWORD_RESET);
             PasswordResetToken token = PasswordResetToken.builder()
                     .token(TokenHashUtil.hash(rawToken))
                     .user(user)
@@ -313,6 +325,6 @@ public class AuthService {
     private String generateSecureToken() {
         byte[] bytes = new byte[32];
         SECURE_RANDOM.nextBytes(bytes);
-        return Base64.getEncoder().withoutPadding().encodeToString(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 }

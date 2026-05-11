@@ -25,6 +25,12 @@ public class AuditLog {
     @Column(name = "user_email")
     private String userEmail;
 
+    @Column(name = "actor_user_id")
+    private UUID actorUserId;
+
+    @Column(name = "actor_email")
+    private String actorEmail;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "event_type", nullable = false, length = 60)
     private AuditEventType eventType;
@@ -35,7 +41,7 @@ public class AuditLog {
     @Column(name = "ip_address", length = 45)
     private String ipAddress;
 
-    @Column(name = "user_agent", length = 45)
+    @Column(name = "user_agent")
     private String userAgent;
 
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -54,7 +60,6 @@ public class AuditLog {
         EMAIL_VERIFICATION,
         PASSWORD_CHANGED,
         PASSWORD_RESET_REQUESTED,
-        PASSWORD_RESET_REQUIRED,
         PASSWORD_RESET_COMPLETED,
         ACCOUNT_LOCKED,
         ACCOUNT_UNLOCKED,
@@ -62,7 +67,6 @@ public class AuditLog {
         ACCOUNT_ENABLED,
         ROLE_ASSIGNED,
         ROLE_REMOVED,
-        USER_DELETED,
         RATE_LIMIT_EXCEEDED,
         INVALID_TOKEN,
         SUSPICIOUS_ACTIVITY

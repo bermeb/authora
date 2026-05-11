@@ -8,7 +8,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -25,19 +24,18 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<RegisterResponse> register(
+    public ResponseEntity<SuccessResponse> register(
             @Valid @RequestBody RegisterRequest body,
             HttpServletRequest request) {
-        User user = authService.register(
+        authService.register(
                 body.getEmail(), body.getPassword(), body.getFirstName(), body.getLastName(), request
         );
 
-        RegisterResponse response = new RegisterResponse();
+        SuccessResponse response = new SuccessResponse();
         response.setSuccess(true);
-        response.setMessage("Registration successful. Please verify your email.");
-        response.setUserId(user.getId());
+        response.setMessage("If this email is eligible for registration, a verification email has been sent.");
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.accepted().body(response);
     }
 
     @PostMapping("/login")
@@ -90,9 +88,10 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/email/verify")
-    public ResponseEntity<SuccessResponse> verifyEmail(@RequestParam String token) {
-        authService.verifyEmail(token);
+    @PostMapping("/email/verify")
+    public ResponseEntity<SuccessResponse> verifyEmail(
+            @Valid @RequestBody VerifyEmailRequest body) {
+        authService.verifyEmail(body.getToken());
         SuccessResponse response = new SuccessResponse();
         response.setSuccess(true);
         response.setMessage("Email verified successfully");

@@ -2,6 +2,7 @@ package dev.bermeb.authora.service;
 
 import dev.bermeb.authora.config.AuthoraProperties;
 import dev.bermeb.authora.exception.AuthException;
+import dev.bermeb.authora.model.AuditLog;
 import dev.bermeb.authora.model.RefreshToken;
 import dev.bermeb.authora.model.User;
 import dev.bermeb.authora.repository.RefreshTokenRepository;
@@ -57,33 +58,62 @@ public class RefreshTokenService {
     public String rotateRefreshToken(String rawToken, HttpServletRequest request) {
         String hash = hash(rawToken);
         RefreshToken existing = refreshTokenRepository.findByToken(hash)
-                .orElseThrow(() -> new AuthException("Invalid refresh token"));
+                .orElseThrow(() -> {
+                    auditLogService.logFailure(AuditLog.AuditEventType.INVALID_TOKEN,
+                            (String) null, "Refresh token not found", request
+                    );
+                    return new AuthException("Invalid refresh token");
+                });
 
-        if (!existing.isActive()) {
-            if(existing.isRevoked()) {
-                log.warn("Refresh token reuse detected for user {}", existing.getUser().getEmail());
-                refreshTokenRepository.revokeAllForUser(
-                        existing.getUser(), Instant.now(), "TOKEN_REUSE_DETECTED"
-                );
-                auditLogService.logSuspiciousActivity(existing.getUser(),
-                        "Refresh token reuse detected", request
-                );
-            }
+        if(existing.isExpired() && !existing.isRevoked()) {
             throw new AuthException("Refresh token expired or revoked");
         }
 
-        existing.revoke("ROTATED");
-        refreshTokenRepository.save(existing);
+        // Atomic compare-and-set
+        int updated = refreshTokenRepository.markRevoked(existing.getId(), Instant.now(), "ROTATED");
+        if (updated == 0) {
+            // Already revoked: either a reuse or another in-flight rotation. Treat as reuse
+            log.warn("Refresh token reuse detected for user {}", existing.getUser().getEmail());
+            refreshTokenRepository.revokeAllForUser(
+                    existing.getUser(), Instant.now(), "TOKEN_REUSE_DETECTED"
+            );
+            auditLogService.logSuspiciousActivity(existing.getUser(),
+                    "Refresh token reuse detected", request
+            );
+            throw new AuthException("Refresh token expired or revoked");
+        }
 
         return createRefreshToken(existing.getUser(), request);
     }
 
     @Transactional(readOnly = true)
-    public User getUserFromToken(String rawToken) {
+    public User getUserFromToken(String rawToken, HttpServletRequest request) {
         return refreshTokenRepository.findByToken(hash(rawToken))
-                .filter(RefreshToken::isActive)
                 .map(RefreshToken::getUser)
-                .orElseThrow(() -> new AuthException("Invalid or expired refresh token"));
+                .orElseThrow(() -> {
+                    auditLogService.logFailure(AuditLog.AuditEventType.INVALID_TOKEN,
+                            (String) null, "Refresh token not found", request
+                    );
+                    return new AuthException("Invalid refresh token");
+                });
+    }
+
+    @Transactional(readOnly = true)
+    public User getActiveUserFromToken(String rawToken, HttpServletRequest request) {
+        RefreshToken rt = refreshTokenRepository.findByToken(hash(rawToken))
+                .orElseThrow(() -> {
+                    auditLogService.logFailure(AuditLog.AuditEventType.INVALID_TOKEN,
+                            (String) null, "Refresh token not found", request
+                    );
+                    return new AuthException("Invalid refresh token");
+                });
+        if (!rt.isActive()) {
+            auditLogService.logFailure(AuditLog.AuditEventType.INVALID_TOKEN,
+                    rt.getUser().getEmail(), "Refresh token expired or revoked", request
+            );
+            throw new AuthException("Refresh token expired or revoked");
+        }
+        return rt.getUser();
     }
 
     @Transactional

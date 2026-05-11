@@ -101,6 +101,13 @@ components:
           minLength: 12
           maxLength: 255
 
+    VerifyEmailRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+
     ChangePasswordRequest:
       type: object
       required: [currentPassword, newPassword]
@@ -179,18 +186,6 @@ components:
         expiresIn:
           type: integer
 
-    RegisterResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-
-        message:
-          type: string
-        userId:
-          type: string
-          format: uuid
-
     SuccessResponse:
       type: object
       properties:
@@ -240,7 +235,6 @@ components:
             - ACCOUNT_ENABLED
             - ROLE_ASSIGNED
             - ROLE_REMOVED
-            - USER_DELETED
             - RATE_LIMIT_EXCEEDED
             - INVALID_TOKEN
             - SUSPICIOUS_ACTIVITY
@@ -390,12 +384,12 @@ paths:
       tags: [Authentication]
       summary: Register a new user account
       description: |
-        Creates a new user with the `USER` role.
+        Creates a new user with the `USER` role and sends a verification link if 
+        `email-verification-required` is enabled (default).
 
-        If `email-verification-required` is enabled (default), the account is inactive
-        until the user clicks the verification link in the welcome email.
+        The account is inactive until the user clicks the verification link in the welcome email.
 
-        Returns `409` if the email is already registered.
+        Returns `202` with a generic message. If the address is already in use, the request is silently ignored.
       operationId: register
       security: []   # public endpoint
       requestBody:
@@ -405,20 +399,14 @@ paths:
             schema:
               $ref: '#/components/schemas/RegisterRequest'
       responses:
-        "201":
-          description: User created successfully
+        "202":
+          description: Request accepted (verification email sent if registration was needed)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RegisterResponse'
+                $ref: '#/components/schemas/SuccessResponse'
         "400":
           $ref: '#/components/responses/BadRequest'
-        "401":
-          description: Email already registered
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
         "429":
           $ref: '#/components/responses/TooManyRequests'
 
@@ -534,22 +522,22 @@ paths:
           $ref: '#/components/responses/Unauthorized'
 
   /api/v1/auth/email/verify:
-    get:
+    post:
       tags: [Email]
       summary: Verify email address
       description: |
-        Called when the user clicks the verification link in the welcome email.
-        The `token` query parameter is a one-time, time-limited token (default 60 min).
-        On success, `emailVerified` is set to `true` and the user can log in.
+        Confirms an email address using the one-time, time-limited token from the
+        verification email. The frontend reads `token` from the URL and POSTs it here.
+        Using POST (rather than GET) prevents corporate mail scanners from consuming
+        the token via URL prefetching.
       operationId: verifyEmail
       security: []
-      parameters:
-        - name: token
-          in: query
-          required: true
-          description: Raw verification token from the email link
-          schema:
-            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailRequest'
       responses:
         "200":
           description: Email verified

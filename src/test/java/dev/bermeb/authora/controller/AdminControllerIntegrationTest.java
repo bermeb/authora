@@ -57,16 +57,15 @@ class AdminControllerIntegrationTest {
     @BeforeEach
     void setupUsers() throws Exception {
         // Register admin user
-        String adminReg = mockMvc.perform(post(AUTH_BASE + "/register")
+        mockMvc.perform(post(AUTH_BASE + "/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "email", "admin@example.com", "password", "password12345",
                                 "firstName", "Admin", "lastName", "User"
                         ))))
-                .andExpect(status().isCreated())
-                .andReturn().getResponse().getContentAsString();
+                .andExpect(status().isAccepted());
 
-        adminUserId = UUID.fromString(objectMapper.readTree(adminReg).get("userId").asString());
+        adminUserId = userRepository.findByEmail("admin@example.com").orElseThrow().getId();
 
         // Promote to ADMIN via repository (same transaction, visible in subsequent MockMvc calls)
         userRepository.findById(adminUserId).ifPresent(user -> {
@@ -85,15 +84,16 @@ class AdminControllerIntegrationTest {
         adminToken = objectMapper.readTree(adminLogin).get("accessToken").asString();
 
         // Register a user
-        String normalReg = mockMvc.perform(post(AUTH_BASE + "/register")
+        mockMvc.perform(post(AUTH_BASE + "/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "email", "normal@example.com", "password", "password12345",
                                 "firstName", "Normal", "lastName", "User"
                         ))))
-                .andExpect(status().isCreated())
+                .andExpect(status().isAccepted())
                 .andReturn().getResponse().getContentAsString();
-        normalUserId = UUID.fromString(objectMapper.readTree(normalReg).get("userId").asString());
+
+        normalUserId = userRepository.findByEmail("normal@example.com").orElseThrow().getId();
 
         String normalLogin = mockMvc.perform(post(AUTH_BASE + "/login")
                         .contentType(MediaType.APPLICATION_JSON)

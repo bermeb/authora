@@ -24,9 +24,11 @@ public class PasswordPolicyValidatorTest {
     @InjectMocks
     PasswordPolicyValidator validator;
 
+    private AuthoraProperties.PasswordPolicy policy;
+
     @BeforeEach
     void setup() {
-        AuthoraProperties.PasswordPolicy policy = new AuthoraProperties.PasswordPolicy();
+        policy = new AuthoraProperties.PasswordPolicy();
         policy.setMinLength(12);
         policy.setRequireLowercase(true);
         policy.setRequireUppercase(true);
@@ -54,5 +56,19 @@ public class PasswordPolicyValidatorTest {
         assertThatThrownBy(() -> validator.validate(password))
                 .isInstanceOf(AuthException.class)
                 .hasMessageContaining("Password must contain");
+    }
+
+    @Test
+    @DisplayName("custom allowedSpecialCharacters set is honored")
+    void custom_allowed_special_characters() {
+        // Narrow the set to a single character - everything else stops counting as special
+        policy.setAllowedSpecialCharacters("$");
+
+        assertThatCode(() -> validator.validate("HasDollar123$x"))
+                .doesNotThrowAnyException();
+
+        assertThatThrownBy(() -> validator.validate("NoDollarButBang123!"))
+                .isInstanceOf(AuthException.class)
+                .hasMessageContaining("one special character");
     }
 }

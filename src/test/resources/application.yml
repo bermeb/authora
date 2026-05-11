@@ -27,7 +27,7 @@ authora:
     max-failed-attempts: 5
     lock-duration-minutes: 15
   password-policy:
-    min-length: 8
+    min-length: 12
     require-uppercase: false
     require-lowercase: false
     require-numbers: false

@@ -5,6 +5,8 @@ import dev.bermeb.authora.model.AuditLog;
 import dev.bermeb.authora.repository.AuditLogRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -18,6 +20,9 @@ public class AuditLogWriter {
     private final AuditLogRepository auditLogRepository;
     private final AuthoraProperties properties;
 
+    private static final Logger AUDIT_FALLBACK =
+            LoggerFactory.getLogger("AUDIT_FALLBACK");
+
     @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void write(AuditLog entry) {
@@ -26,8 +31,12 @@ public class AuditLogWriter {
         try {
             auditLogRepository.save(entry);
         } catch (Exception e) {
-            log.error("Failed to write audit log entry [{}]: {}",
-                    entry.getEventType(), e.getMessage());
+            AUDIT_FALLBACK.error(
+                    "AUDIT_DB_FAILURE event_type={} user_id={} user_email={} actor_user_id={} " +
+                            "ip={} failed={} details={} ts={} cause={}",
+                    entry.getEventType(), entry.getUserId(), entry.getUserEmail(),
+                    entry.getActorUserId(), entry.getIpAddress(), entry.isFailed(),
+                    entry.getDetails(), java.time.Instant.now(), e.getMessage());
         }
     }
 }

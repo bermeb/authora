@@ -54,18 +54,18 @@ src/main/java/dev/bermeb/authora/
 
 The application is highly configurable via `src/main/resources/application.yml` or environment variables:
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `JWT_SECRET` | Secret key for signing JWTs | *Change in Prod!* |
-| `JWT_EXPIRY_MINUTES` | Access token lifespan | `15` |
-| `PW_PEPPER` | Server-side password pepper | *Change in Prod!* |
-| `RATE_LIMIT_ENABLED` | Enable brute-force protection | `true` |
-| `FEATURE_EMAIL_VERIFY`| Require email verification | `true` |
-| `DB_URL` | Database connection URL | `jdbc:h2:mem...` |
-| `DB_USER` | Database username | `sa` |
-| `DB_PASSWORD` | Database password | *(empty)* |
-| `SMTP_HOST` | Email server host | `localhost` |
-| `SMTP_PORT` | Email server port | `1025` |
+| Variable               | Description                   | Default              |
+|------------------------|-------------------------------|----------------------|
+| `JWT_SECRET`           | Secret key for signing JWTs   | *Change in Prod!*    |
+| `JWT_EXPIRY_MINUTES`   | Access token lifespan         | `15`                 |
+| `PW_PEPPER`            | Server-side password pepper   | *Change in Prod!*    |
+| `RATE_LIMIT_ENABLED`   | Enable brute-force protection | `true`               |
+| `FEATURE_EMAIL_VERIFY` | Require email verification    | `true`               |
+| `DB_URL`               | Database connection URL       | `jdbc:h2:mem...`     |
+| `DB_USER`              | Database username             | `sa`                 |
+| `DB_PASSWORD`          | Database password             | *(empty)*            |
+| `SMTP_HOST`            | Email server host             | `localhost`          |
+| `SMTP_PORT`            | Email server port             | `1025`               |
 
 ### 🔑 OAuth2 Setup
 

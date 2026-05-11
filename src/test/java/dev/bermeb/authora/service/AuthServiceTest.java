@@ -2,6 +2,7 @@ package dev.bermeb.authora.service;
 
 import dev.bermeb.authora.config.AuthoraProperties;
 import dev.bermeb.authora.exception.AuthException;
+import dev.bermeb.authora.model.AuditLog;
 import dev.bermeb.authora.model.PasswordResetToken;
 import dev.bermeb.authora.model.Role;
 import dev.bermeb.authora.model.User;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -108,25 +110,30 @@ class AuthServiceTest {
             when(passwordEncoder.encode(anyString())).thenReturn("$hashed");
             when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-            User result = authService.register("new@example.com", "ValidPass1!", "John", "Doe", request);
+            authService.register("new@example.com", "ValidPass1!", "John", "Doe", request);
 
-            assertThat(result.getEmail()).isEqualTo("new@example.com");
-            assertThat(result.getRoles()).contains(Role.USER);
-            verify(userRepository).save(any(User.class));
+            ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+            verify(userRepository).save(captor.capture());
+            assertThat(captor.getValue().getEmail()).isEqualTo("new@example.com");
+            assertThat(captor.getValue().getRoles()).contains(Role.USER);
             verify(auditLogService).logSuccess(any(), any(), any());
         }
 
         @Test
-        @DisplayName("should throw when email already registered")
+        @DisplayName("should silently no-op and consume bcrypt time when email already registered")
         void register_duplicateEmail() {
             when(userRepository.existsByEmail(anyString())).thenReturn(true);
 
-            assertThatThrownBy(() ->
-                    authService.register("test@example.com", "pass", "A", "B", request)
-            ).isInstanceOf(AuthException.class)
-                    .hasMessageContaining("already registered");
+            authService.register("test@example.com", "ValidPass1!", "John", "Doe", request);
 
             verify(userRepository, never()).save(any());
+            verify(passwordEncoder).matches(eq("ValidPass1!"), nullable(String.class));
+            verify(auditLogService).logFailure(
+                    eq(AuditLog.AuditEventType.REGISTRATION),
+                    eq("test@example.com"),
+                    anyString(),
+                    any()
+            );
         }
     }
 
@@ -254,7 +261,7 @@ class AuthServiceTest {
         @Test
         @DisplayName("with rotateOnUse=true rotates token and returns new access token")
         void refresh_withRotation() {
-            when(refreshTokenService.getUserFromToken("rawToken")).thenReturn(testUser);
+            when(refreshTokenService.getUserFromToken("rawToken", request)).thenReturn(testUser);
             when(refreshTokenService.rotateRefreshToken("rawToken", request)).thenReturn("newRawToken");
             when(jwtService.generateAccessToken(any())).thenReturn("newAccessToken");
             when(jwtService.getAccessTokenExpirationSeconds()).thenReturn(900L);
@@ -270,7 +277,7 @@ class AuthServiceTest {
         @DisplayName("with rotateOnUse=false reuses the same refresh token")
         void refresh_withoutRotation() {
             properties.getRefreshToken().setRotateOnUse(false);
-            when(refreshTokenService.getUserFromToken("rawToken")).thenReturn(testUser);
+            when(refreshTokenService.getActiveUserFromToken("rawToken", request)).thenReturn(testUser);
             when(jwtService.generateAccessToken(any())).thenReturn("newAccessToken");
             when(jwtService.getAccessTokenExpirationSeconds()).thenReturn(900L);
 
@@ -278,13 +285,14 @@ class AuthServiceTest {
 
             assertThat(result.get("refreshToken")).isEqualTo("rawToken");
             verify(refreshTokenService, never()).rotateRefreshToken(any(), any());
+            verify(refreshTokenService, never()).getUserFromToken(any(), any());
         }
 
         @Test
         @DisplayName("disabled account throws AuthException")
         void refresh_disabledAccount() {
             testUser.setEnabled(false);
-            when(refreshTokenService.getUserFromToken("rawToken")).thenReturn(testUser);
+            when(refreshTokenService.getUserFromToken("rawToken", request)).thenReturn(testUser);
 
             assertThatThrownBy(() -> authService.refresh("rawToken", request))
                     .isInstanceOf(AuthException.class)
@@ -296,7 +304,7 @@ class AuthServiceTest {
         void refresh_lockedAccount() {
             testUser.setAccountLocked(true);
             testUser.setLockedUntil(Instant.now().plusSeconds(600));
-            when(refreshTokenService.getUserFromToken("rawToken")).thenReturn(testUser);
+            when(refreshTokenService.getUserFromToken("rawToken", request)).thenReturn(testUser);
 
             assertThatThrownBy(() -> authService.refresh("rawToken", request))
                     .isInstanceOf(AuthException.class)
