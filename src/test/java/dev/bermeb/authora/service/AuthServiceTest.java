@@ -120,13 +120,14 @@ class AuthServiceTest {
         }
 
         @Test
-        @DisplayName("should silently no-op when email already registered")
+        @DisplayName("should silently no-op and consume bcrypt time when email already registered")
         void register_duplicateEmail() {
             when(userRepository.existsByEmail(anyString())).thenReturn(true);
 
             authService.register("test@example.com", "ValidPass1!", "John", "Doe", request);
 
             verify(userRepository, never()).save(any());
+            verify(passwordEncoder).matches(eq("ValidPass1!"), nullable(String.class));
             verify(auditLogService).logFailure(
                     eq(AuditLog.AuditEventType.REGISTRATION),
                     eq("test@example.com"),
