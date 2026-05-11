@@ -7,6 +7,7 @@ import dev.bermeb.authora.model.AuditLog;
 import dev.bermeb.authora.service.AuditLogService;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,6 +23,8 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -40,13 +43,20 @@ public class RateLimitFilter extends OncePerRequestFilter {
                     .maximumSize(100_000)
                     .build();
 
-    private static final String[] RATE_LIMITED_PATHS = {
-            "/api/v1/auth/login",
-            "/api/v1/auth/register",
-            "/api/v1/auth/password/forgot",
-            "/api/v1/auth/password/reset",
-            "/api/v1/auth/refresh"
-    };
+    private List<String> orderedPathPrefixes = List.of();
+
+    @PostConstruct
+    void initPathPrefixes() {
+        Map<String, AuthoraProperties.RateLimit.PathLimit> paths =
+                properties.getRateLimit().getPaths();
+        this.orderedPathPrefixes = paths.keySet().stream()
+                .sorted(Comparator.comparingInt(String::length).reversed())
+                .toList();
+        if (orderedPathPrefixes.isEmpty() && properties.getRateLimit().isEnabled()) {
+            log.warn("Rate limit is enabled but no paths are configured under " +
+                    "authora.rate-limit.paths - no requests will be limited.");
+        }
+    }
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
@@ -65,13 +75,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
 
         AuthoraProperties.RateLimit.PathLimit limit =
-                properties.getRateLimit().getPaths().getOrDefault(matchedPath, defaultLimit());
-        if (limit == null) {
-            // Legacy fallback so any newly added path still has some limit
-            limit = new AuthoraProperties.RateLimit.PathLimit();
-            limit.setCapacity(properties.getRateLimit().getLoginAttemptsPerMinute());
-            limit.setPeriodSeconds(60);
-        }
+                properties.getRateLimit().getPaths().get(matchedPath);
 
         String ip = request.getRemoteAddr();
         String key = matchedPath + "|" + ip;
@@ -95,13 +99,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
     }
 
-    private AuthoraProperties.RateLimit.PathLimit defaultLimit() {
-        AuthoraProperties.RateLimit.PathLimit l = new AuthoraProperties.RateLimit.PathLimit();
-        l.setCapacity(properties.getRateLimit().getLoginAttemptsPerMinute());
-        l.setPeriodSeconds(60);
-        return l;
-    }
-
     private Bucket resolveBucket(String key, AuthoraProperties.RateLimit.PathLimit limit) {
         return localBuckets.get(key, k -> Bucket.builder()
                 .addLimit(Bandwidth.builder()
@@ -114,8 +111,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private String matchedPath(HttpServletRequest request) {
         String requestPath = request.getServletPath();
-        for (String p : RATE_LIMITED_PATHS) {
-            if (requestPath.startsWith(p)) return p;
+        for (String prefix : orderedPathPrefixes) {
+            if (requestPath.startsWith(prefix)) return prefix;
         }
         return null;
     }
