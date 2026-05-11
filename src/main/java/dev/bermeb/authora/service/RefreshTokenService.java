@@ -65,7 +65,7 @@ public class RefreshTokenService {
                     return new AuthException("Invalid refresh token");
                 });
 
-        if(existing.isExpired()) {
+        if(existing.isExpired() && !existing.isRevoked()) {
             throw new AuthException("Refresh token expired or revoked");
         }
 
