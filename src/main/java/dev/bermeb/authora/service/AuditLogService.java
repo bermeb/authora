@@ -22,15 +22,13 @@ public class AuditLogService {
     private final AuditLogWriter auditLogWriter;
     private final AuthoraProperties properties;
 
+    private static final int USER_AGENT_MAX_LEN = 255;
+
     public void log(AuditLog.AuditEventType type, User user, String details,
                     HttpServletRequest request, boolean failed) {
         if (!properties.getFeatures().isAuditLogEnabled()) return;
 
         User actor = currentActor();
-        boolean actorIsTarget =
-                actor != null
-                && user != null
-                && actor.getId().equals(user.getId());
 
         AuditLog entry = AuditLog.builder()
                 .eventType(type)
@@ -39,8 +37,8 @@ public class AuditLogService {
                 .actorUserId(actor != null && !actorIsTarget ? actor.getId() : null)
                 .actorEmail(actor != null && !actorIsTarget ? actor.getEmail() : null)
                 .details(details)
-                .ipAddress(request != null ? extractIp(request) : null)
-                .userAgent(request != null ? request.getHeader("User-Agent") : null)
+                .ipAddress(extractIp(request))
+                .userAgent(userAgent(request))
                 .createdAt(Instant.now())
                 .failed(failed)
                 .build();
@@ -67,8 +65,8 @@ public class AuditLogService {
                 .eventType(type)
                 .userEmail(email)
                 .details(details)
-                .ipAddress(request != null ? extractIp(request) : null)
-                .userAgent(request != null ? request.getHeader("User-Agent") : null)
+                .ipAddress(extractIp(request))
+                .userAgent(userAgent(request))
                 .createdAt(Instant.now())
                 .failed(true)
                 .build();
@@ -87,6 +85,13 @@ public class AuditLogService {
         if (principal instanceof UserPrincipal up) return up.getUser();
         if (principal instanceof OAuth2UserPrincipal op) return op.getUser();
         return null;
+    }
+
+    private static String userAgent(HttpServletRequest request) {
+        if (request == null) return null;
+        String ua = request.getHeader("User-Agent");
+        if (ua == null) return null;
+        return ua.length() > USER_AGENT_MAX_LEN ? ua.substring(0, USER_AGENT_MAX_LEN) : ua;
     }
 
     private String extractIp(HttpServletRequest request) {
