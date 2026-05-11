@@ -7,7 +7,6 @@ import dev.bermeb.authora.model.AuditLog;
 import dev.bermeb.authora.service.AuditLogService;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
-import jakarta.annotation.PostConstruct;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,9 +22,8 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -43,21 +41,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
                     .maximumSize(100_000)
                     .build();
 
-    private List<String> orderedPathPrefixes = List.of();
-
-    @PostConstruct
-    void initPathPrefixes() {
-        Map<String, AuthoraProperties.RateLimit.PathLimit> paths =
-                properties.getRateLimit().getPaths();
-        this.orderedPathPrefixes = paths.keySet().stream()
-                .sorted(Comparator.comparingInt(String::length).reversed())
-                .toList();
-        if (orderedPathPrefixes.isEmpty() && properties.getRateLimit().isEnabled()) {
-            log.warn("Rate limit is enabled but no paths are configured under " +
-                    "authora.rate-limit.paths - no requests will be limited.");
-        }
-    }
-
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                     @NonNull HttpServletResponse response,
@@ -68,18 +51,18 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return;
         }
 
-        String matchedPath = matchedPath(request);
+        Map<String, AuthoraProperties.RateLimit.PathLimit> paths =
+                properties.getRateLimit().getPaths();
+
+        String matchedPath = matchedPath(request.getServletPath(), paths.keySet());
         if (matchedPath == null) {
             chain.doFilter(request, response);
             return;
         }
 
-        AuthoraProperties.RateLimit.PathLimit limit =
-                properties.getRateLimit().getPaths().get(matchedPath);
-
+        AuthoraProperties.RateLimit.PathLimit limit = paths.get(matchedPath);
         String ip = request.getRemoteAddr();
-        String key = matchedPath + "|" + ip;
-        Bucket bucket = resolveBucket(key, limit);
+        Bucket bucket = resolveBucket(matchedPath + "|" + ip, limit);
 
         if (bucket.tryConsume(1)) {
             chain.doFilter(request, response);
@@ -109,11 +92,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
         );
     }
 
-    private String matchedPath(HttpServletRequest request) {
-        String requestPath = request.getServletPath();
-        for (String prefix : orderedPathPrefixes) {
-            if (requestPath.startsWith(prefix)) return prefix;
+    private static String matchedPath(String requestPath, Set<String> prefixes) {
+        // Longest-prefix match
+        String best = null;
+        for (String prefix : prefixes) {
+            if (requestPath.startsWith(prefix) && (best == null || prefix.length() > best.length())) {
+                best = prefix;
+            }
         }
-        return null;
+        return best;
     }
 }

@@ -51,9 +51,7 @@ class RateLimitFilterTest {
     }
 
     private RateLimitFilter newFilter() {
-        RateLimitFilter filter = new RateLimitFilter(properties, auditLogService, JsonMapper.builder().build());
-        filter.initPathPrefixes();
-        return filter;
+        return new RateLimitFilter(properties, auditLogService, JsonMapper.builder().build());
     }
 
     private static AuthoraProperties.RateLimit.PathLimit pathLimit(int capacity, long periodSeconds) {
