@@ -2,6 +2,7 @@ package dev.bermeb.authora.config;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -27,6 +28,7 @@ public class AuthoraProperties {
     private PasswordPolicy passwordPolicy = new PasswordPolicy();
     @Valid
     private Email email = new Email();
+    @Valid
     private Features features = new Features();
     @Valid
     private Cors cors = new Cors();
@@ -67,6 +69,7 @@ public class AuthoraProperties {
             @Min(1)
             private int capacity;
             @Min(1)
+            @Max(86_400) // 1 day
             private long periodSeconds;
         }
     }
@@ -103,6 +106,15 @@ public class AuthoraProperties {
         private String oauth2RedirectUri = "http://localhost:3000/oauth2/callback";
         private String emailVerifyRedirectUri = "http://localhost:3000/verify-email";
         private String passwordResetRedirectUri = "http://localhost:3000/reset-password";
+
+        @AssertTrue(
+                message = "OAuth2/email/reset redirect URIs must use https:// (http://localhost or http://127.0.0.1 allowed for dev)"
+        )
+        public boolean isRedirectUrisSecure() {
+            return Cors.isSecureOrigin(oauth2RedirectUri)
+                    && Cors.isSecureOrigin(emailVerifyRedirectUri)
+                    && Cors.isSecureOrigin(passwordResetRedirectUri);
+        }
     }
 
     @Data
@@ -120,15 +132,17 @@ public class AuthoraProperties {
             return allowedOrigins.stream().allMatch(Cors::isSecureOrigin);
         }
 
-        private static boolean isSecureOrigin(String origin) {
+        static boolean isSecureOrigin(String origin) {
             try {
                 URI u = URI.create(origin);
                 String scheme = u.getScheme();
                 String host = u.getHost();
                 if (scheme == null || host == null) return false;
-                if ("https".equals(scheme)) return true;
-                return "http".equals(scheme)
-                        && ("localhost".equals(host) || "127.0.0.1".equals(host));
+                // For CORS allowed-origins, reject path/query/fragment
+                // For redirect URIs we still accept a path - so callers that need
+                // strict origin-only validation must check separately
+                return "https".equals(scheme)
+                        || ("http".equals(scheme) && ("localhost".equals(host) || "127.0.0.1".equals(host)));
             } catch (IllegalArgumentException e) {
                 return false;
             }
