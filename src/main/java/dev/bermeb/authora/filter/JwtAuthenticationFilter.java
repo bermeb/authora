@@ -3,7 +3,6 @@ package dev.bermeb.authora.filter;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import dev.bermeb.authora.model.AuditLog;
-import dev.bermeb.authora.security.UserDetailsServiceImpl;
 import dev.bermeb.authora.security.UserPrincipalLookup;
 import dev.bermeb.authora.service.AuditLogService;
 import dev.bermeb.authora.service.JwtService;
