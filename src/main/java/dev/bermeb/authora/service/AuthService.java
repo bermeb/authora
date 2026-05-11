@@ -56,7 +56,8 @@ public class AuthService {
 
     @PostConstruct
     void initDummyHash() {
-        // Randomize password hash to eliminate small timing differences
+        // Hash a random throwaway value at startup; cost mirrors a real bcrypt verify
+        // so duplicate-email and unknown-user paths take the same wall time as a real login
         this.dummyHash = passwordEncoder.encode(SECURE_RANDOM.nextInt() + "__dummy__" + SECURE_RANDOM.nextInt());
     }
 
@@ -64,7 +65,7 @@ public class AuthService {
     public void register(String email, String password, String firstName, String lastName, HttpServletRequest request) {
         if (userRepository.existsByEmail(email.toLowerCase())) {
             // Consume bcrypt time so duplicate-email cannot be detected via response timing
-            passwordEncoder.matches(password, dummyHash);
+            passwordEncoder.matches(password, dummyHash); // constant-time decoy
             auditLogService.logFailure(AuditLog.AuditEventType.REGISTRATION,
                     email, "Duplicate registration attempt", request
             );
@@ -105,7 +106,7 @@ public class AuthService {
     public Map<String, Object> login(String email, String password, HttpServletRequest request) {
         User user = userRepository.findByEmail(email.toLowerCase()).orElse(null);
         if (user == null) {
-            passwordEncoder.matches(password, dummyHash); // consume bcrypt time
+            passwordEncoder.matches(password, dummyHash); // constant-time decoy
             auditLogService.logFailure(AuditLog.AuditEventType.LOGIN_FAILURE, email, "User not found", request);
             throw new AuthException("Invalid credentials");
         }

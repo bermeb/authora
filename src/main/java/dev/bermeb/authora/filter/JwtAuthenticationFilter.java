@@ -56,11 +56,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         final String jwt = authHeader.substring(7);
-        boolean tokenParsedSuccessfully = false;
+        boolean claimsExtracted = false;
 
         try {
             final String userId = jwtService.extractUserId(jwt);
-            tokenParsedSuccessfully = true;
+            claimsExtracted = true;
 
             if (userId != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = userDetailsService.loadUserById(UUID.fromString(userId));
@@ -81,7 +81,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // Other failures (e.g. UUID parse, user lookup) - only audit if the token
             // actually parsed as a JWT, to avoid attacker-driven audit floods
             log.debug("JWT filter: {}", e.getMessage());
-            if (tokenParsedSuccessfully) {
+            if (claimsExtracted) {
                 auditIfUnderQuota(request, e.getMessage());
             }
         }
