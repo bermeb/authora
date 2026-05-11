@@ -39,6 +39,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final EmailVerificationService  emailVerificationService;
     private final AuthenticationManager authManager;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
@@ -88,17 +89,8 @@ public class AuthService {
         userRepository.save(user);
         auditLogService.logSuccess(AuditLog.AuditEventType.REGISTRATION, user, request);
 
-        if (properties.getFeatures().isEmailVerificationRequired()) {
-            String rawToken = generateSecureToken();
-            PasswordResetToken verifyToken = PasswordResetToken.builder()
-                    .token(TokenHashUtil.hash(rawToken))
-                    .user(user)
-                    .tokenType(PasswordResetToken.TokenType.EMAIL_VERIFICATION)
-                    .expiresAt(Instant.now().plus(60, ChronoUnit.MINUTES))
-                    .createdAt(Instant.now())
-                    .build();
-            passwordResetTokenRepository.save(verifyToken);
-            emailService.sendEmailVerification(user, rawToken);
+        if(properties.getFeatures().isEmailVerificationRequired()) {
+            emailVerificationService.issueFor(user);
         }
     }
 
